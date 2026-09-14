@@ -58,11 +58,20 @@
       <button class="secondary" id="btn-guardar-mapa">Guardar mapa maestro</button>
 
       <div class="section-gap">
-        <p class="block-title">Maestro de conversión (referencia para estimar cacao seco)</p>
+        <p class="block-title">Maestro de conversión (kg de cacao por tonelada de fruto fresco, según etapa)</p>
         <div class="mapa-form">
-          <div class="field"><label>Cacao seco final (kg por tonelada de fruto fresco)</label><input type="number" id="mc-seco"></div>
+          <div class="field"><label>Después de despulpado / bines, entra a F. anaeróbica (kg/ton)</label><input type="number" id="mc-anaerobica"></div>
+          <div class="field"><label>Al pasar a F. aeróbica (kg/ton)</label><input type="number" id="mc-aerobica"></div>
+          <div class="field"><label>Al entrar a Presecado (kg/ton)</label><input type="number" id="mc-presecado"></div>
+          <div class="field"><label>Al entrar a Secado (kg/ton)</label><input type="number" id="mc-secado"></div>
+          <div class="field"><label>Al salir de Secado — cacao seco final (kg/ton)</label><input type="number" id="mc-seco"></div>
         </div>
         <button class="secondary" id="btn-guardar-conversion">Guardar maestro de conversión</button>
+        <p class="op-meta" style="margin-top:10px;">
+          Esta tabla es de referencia para ver la merma esperada en cada etapa.
+          El indicador "cacao seco equivalente" del Tablero usa siempre el
+          último valor (seco final), sin importar en qué etapa esté el bache.
+        </p>
       </div>
     </div>
 

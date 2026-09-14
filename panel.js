@@ -31,14 +31,23 @@ async function guardarMapaMaestro(){
 }
 
 function renderMaestroConversionForm(){
+  document.getElementById('mc-anaerobica').value = DATA.maestroConversion.anaerobica;
+  document.getElementById('mc-aerobica').value = DATA.maestroConversion.aerobica;
+  document.getElementById('mc-presecado').value = DATA.maestroConversion.presecado;
+  document.getElementById('mc-secado').value = DATA.maestroConversion.secado;
   document.getElementById('mc-seco').value = DATA.maestroConversion.seco;
 }
 
 async function guardarMaestroConversion(){
   const nombre = getAdminNombre();
-  const valor = parseFloat(document.getElementById('mc-seco').value) || 0;
-  DATA.maestroConversion = { seco: valor };
-  registrarMovimiento('Maestro de conversión actualizado', `Cacao seco final: ${valor} kg/ton`, nombre);
+  DATA.maestroConversion = {
+    anaerobica: parseFloat(document.getElementById('mc-anaerobica').value) || 0,
+    aerobica: parseFloat(document.getElementById('mc-aerobica').value) || 0,
+    presecado: parseFloat(document.getElementById('mc-presecado').value) || 0,
+    secado: parseFloat(document.getElementById('mc-secado').value) || 0,
+    seco: parseFloat(document.getElementById('mc-seco').value) || 0
+  };
+  registrarMovimiento('Maestro de conversión actualizado', JSON.stringify(DATA.maestroConversion), nombre);
   await save();
   render();
 }
@@ -191,7 +200,7 @@ function descargarBackup(){
 function exportarBachesCSV(){
   const cols = ['codigo','fecha','denom','etapaIdx','etapaNombre','peso_fresco','basculas','peso_final','peso_g1','peso_g2','peso_impurezas','humedadSalida','liberado','lvAsignaciones'];
   const filas = DATA.baches.map(b=>[
-    b.codigo, b.fecha, b.denom, b.etapaIdx, STAGES[b.etapaIdx], b.peso_fresco,
+    b.codigo, b.fecha, b.denom, b.etapaIdx, etapaMostrada(b), b.peso_fresco,
     (b.basculas||[]).map(x=>`${x.numero}:${x.peso}`).join('|'),
     b.peso_final, b.peso_g1, b.peso_g2, b.peso_impurezas, b.humedadSalida, b.liberado,
     (b.lvAsignaciones||[]).map(a=>`${a.lv}:${a.kg}`).join('|')

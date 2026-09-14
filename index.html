@@ -5,6 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Trazabilidad PHC — Captura</title>
 <link rel="stylesheet" href="style.css">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1E1B16">
+<link rel="icon" href="icons/icono-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icons/icono-192.png">
 </head>
 <body>
 
@@ -95,5 +99,12 @@
 
 <script src="shared.js"></script>
 <script src="captura.js"></script>
+<script>
+  if('serviceWorker' in navigator){
+    window.addEventListener('load', ()=>{
+      navigator.serviceWorker.register('sw.js').catch(()=>{ /* si falla, la app sigue funcionando igual, solo sin modo offline */ });
+    });
+  }
+</script>
 </body>
 </html>

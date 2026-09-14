@@ -116,7 +116,7 @@ function agregadoEtapa(idx){
 // ---------- Conexión al backend (Cloudflare Worker + KV) ----------
 // Reemplaza estos dos valores después de desplegar el Worker (ver worker/README).
 const API_BASE = 'https://trazabilidad-bacao.mgereda.workers.dev';
-const API_KEY  = 'B4c@02026
+const API_KEY  = 'B4c@02026'
 
 let ultimoGuardadoOk = true;
 

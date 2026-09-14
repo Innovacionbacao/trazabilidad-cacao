@@ -25,10 +25,25 @@
 
   header{
     padding:20px 24px 0; border-bottom:1px solid var(--line);
-    display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:8px;
+    display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;
   }
-  header h1{margin:0 0 14px; font-size:20px; font-weight:600;}
+  .header-brand{display:flex; align-items:center; gap:14px;}
+  .brand-logo{height:44px; width:auto; display:block;}
+  .header-titles{display:flex; flex-direction:column; padding-bottom:14px;}
+  header h1{margin:0; font-size:20px; font-weight:600;}
   header .sub{color:var(--ink-dim); font-size:13px;}
+  .page-role{
+    font-size:12px; color:var(--amber); border:1px solid var(--amber);
+    padding:4px 10px; border-radius:20px; white-space:nowrap; margin-bottom:14px;
+  }
+  .page-links{
+    display:flex; gap:10px; align-items:center; padding:10px 24px;
+    border-bottom:1px solid var(--line); font-size:13px;
+  }
+  .page-links a{color:var(--ink-dim); text-decoration:none;}
+  .page-links a:hover{color:var(--ink);}
+  .page-links a.current{color:var(--amber); font-weight:600;}
+  .page-links span{color:var(--line);}
 
   nav.tabs{
     display:flex; gap:2px; padding:0 24px; border-bottom:1px solid var(--line);

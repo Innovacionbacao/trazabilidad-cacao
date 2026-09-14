@@ -32,9 +32,19 @@ const CAPACIDAD = {
 // Área de almacenamiento final: capacidad en toneladas y conversión a m²
 
 const ALMACEN_CAP = { totalTon:200, m2PorTon: 4/6 };
-// Factor teórico de conversión fruto fresco -> cacao a almacenado, para proyectar bodega
-
+// Factor teórico de conversión fruto fresco -> cacao a almacenado, para proyectar bodega.
+// Para "cacao seco equivalente" en el Tablero se usa SIEMPRE el factor final
+// (seco), sin importar la etapa: interesa cuánto va a rendir al final, no el
+// peso a mitad de proceso.
 function factorConversionActual(){ return (DATA.maestroConversion.seco || 360) / 1000; }
+
+// Esta sí varía por etapa: sirve para VER la merma esperada en cada etapa
+// (Panel → Configuración), no para el cálculo de inventario del Tablero.
+function factorEquivalenteSeco(idx){
+  const mc = DATA.maestroConversion;
+  const map = {0:1000, 2:mc.anaerobica, 3:mc.aerobica, 4:mc.presecado, 5:mc.secado, 6:mc.seco};
+  return map[idx] ?? 1000;
+}
 
 const MAX_KG_LOTE_VENTA = 25000;
 
@@ -45,7 +55,7 @@ let DATA = {
   lotes: [],
   lvConsecutivo: 0,
   mapaMaestro: { recepcion:14, anaerobica:48, aerobica:48, presecado:8, secado:18 },
-  maestroConversion: { seco: 360 },
+  maestroConversion: { anaerobica:800, aerobica:720, presecado:640, secado:520, seco:360 },
   movimientos: [],
   adminNombre: ''
 };
@@ -94,6 +104,14 @@ function kgEnBodegaSinDespachar(b){
 
 function bacheDespachado(b){
   return b.peso_final!=null && (b.lvAsignaciones||[]).length>0 && kgEnBodegaSinDespachar(b) <= 0;
+}
+
+// Para mostrar en pantalla: "Almacenado" es solo mientras el producto sigue
+// físicamente en bodega. En cuanto ya salió por completo en un lote de venta
+// despachado, se muestra como "Despachado" — son estados distintos aunque el
+// etapaIdx interno (7) sea el mismo, porque el bache ya no ocupa inventario.
+function etapaMostrada(b){
+  return bacheDespachado(b) ? 'Despachado' : STAGES[b.etapaIdx];
 }
 
 function setDespachados(){
@@ -212,8 +230,8 @@ function getAdminNombre(){ return document.getElementById('admin-nombre').value.
 
 /* ---------- Conexión al backend (Cloudflare Worker + KV) ---------- */
 // Reemplaza estos dos valores después de desplegar el Worker (ver worker/README).
-const API_BASE = 'https://trazabilidad-bacao.mgereda.workers.dev';
-const API_KEY  = 'B4c@02026';
+const API_BASE = 'https://trazabilidad-cacao.TU-SUBDOMINIO.workers.dev';
+const API_KEY  = 'CAMBIA-ESTA-CLAVE';
 
 let ultimoGuardadoOk = true;
 

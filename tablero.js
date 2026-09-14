@@ -51,7 +51,7 @@ function renderTrazabilidad(){
         </tr>`).join('');
       const actual = `
         <tr>
-          <td>${STAGES[b.etapaIdx]} (actual)</td>
+          <td>${etapaMostrada(b)} (actual)</td>
           <td>${fmtDateTime(new Date(b.horaInicioEtapa))}</td>
           <td>—</td>
           <td>en curso</td>
@@ -87,7 +87,7 @@ function renderTrazabilidad(){
         <div class="op-top">
           <span class="tag" style="background:${denomInfo.color}">${denomInfo.label}</span>
           <span class="op-codigo">${b.codigo}</span>
-          <span class="op-meta">${STAGES[b.etapaIdx]}${(b.lvAsignaciones||[]).length ? ` · ${b.lvAsignaciones.map(a=>a.lv).join(', ')}` : ''}${b.parcialDe ? ` · parcial de ${b.parcialDe}` : ''}</span>
+          <span class="op-meta">${etapaMostrada(b)}${(b.lvAsignaciones||[]).length ? ` · ${b.lvAsignaciones.map(a=>a.lv).join(', ')}` : ''}${b.parcialDe ? ` · parcial de ${b.parcialDe}` : ''}</span>
         </div>
         ${detalle}
       </div>`;
@@ -234,6 +234,34 @@ function renderDenomDonut(){
     </div>`;
 }
 
+function renderDespachadoResumen(){
+  const anio = document.getElementById('dash-anio').value;
+  const mes = document.getElementById('dash-mes').value;
+  const denomF = document.getElementById('dash-denom').value;
+
+  const despachados = DATA.lotes.filter(l=>l.despacho).filter(l=>{
+    if(denomF!=='todas' && l.denom!==denomF) return false;
+    if(anio==='todos') return true;
+    const [y,m] = l.despacho.fecha.slice(0,10).split('-');
+    if(y!==anio) return false;
+    if(mes==='todos') return true;
+    return m===mes;
+  });
+
+  const totalKg = despachados.reduce((s,l)=>s+l.total_kg,0);
+  const porDenom = {ccn51:0, aromatico:0, upia:0};
+  despachados.forEach(l=>{ porDenom[l.denom] += l.total_kg; });
+
+  document.getElementById('inventario-despachado').innerHTML = despachados.length ? `
+    <div class="dash-grid">
+      <div class="dash-card"><div class="n">${(totalKg/1000).toFixed(1)}</div><div class="label">Ton despachadas (periodo)</div></div>
+      <div class="dash-card"><div class="n">${despachados.length}</div><div class="label">Lotes despachados</div></div>
+      <div class="dash-card"><div class="n">${(porDenom.ccn51/1000).toFixed(1)}</div><div class="label">CCN-51 (ton)</div></div>
+      <div class="dash-card"><div class="n">${(porDenom.aromatico/1000).toFixed(1)}</div><div class="label">Aromático (ton)</div></div>
+      <div class="dash-card"><div class="n">${(porDenom.upia/1000).toFixed(1)}</div><div class="label">Upia (ton)</div></div>
+    </div>` : '<div class="empty">Sin lotes despachados en el periodo seleccionado.</div>';
+}
+
 function renderInventarioProceso(){
   const despachados = setDespachados();
 
@@ -260,6 +288,9 @@ function renderInventarioProceso(){
   const totalBodega = enBodega.reduce((s,b)=>s+kgEnBodegaSinDespachar(b),0);
   const porDenomBodega = {ccn51:0, aromatico:0, upia:0};
   enBodega.forEach(b=>{ porDenomBodega[b.denom] += kgEnBodegaSinDespachar(b); });
+  const totalG1 = enBodega.reduce((s,b)=>s+(b.peso_g1||0),0);
+  const totalG2 = enBodega.reduce((s,b)=>s+(b.peso_g2||0),0);
+  const totalImp = enBodega.reduce((s,b)=>s+(b.peso_impurezas||0),0);
 
   document.getElementById('inventario-bodega').innerHTML = `
     <div class="dash-grid">
@@ -267,6 +298,9 @@ function renderInventarioProceso(){
       <div class="dash-card"><div class="n">${(porDenomBodega.ccn51/1000).toFixed(1)}</div><div class="label">CCN-51 (ton)</div></div>
       <div class="dash-card"><div class="n">${(porDenomBodega.aromatico/1000).toFixed(1)}</div><div class="label">Aromático (ton)</div></div>
       <div class="dash-card"><div class="n">${(porDenomBodega.upia/1000).toFixed(1)}</div><div class="label">Upia (ton)</div></div>
+      <div class="dash-card"><div class="n">${(totalG1/1000).toFixed(1)}</div><div class="label">Grado 1 (ton)</div></div>
+      <div class="dash-card"><div class="n">${(totalG2/1000).toFixed(1)}</div><div class="label">Grado 2 (ton)</div></div>
+      <div class="dash-card"><div class="n">${(totalImp/1000).toFixed(1)}</div><div class="label">Impurezas (ton)</div></div>
     </div>`;
 }
 
@@ -278,13 +312,13 @@ function renderDashboardKPIs(){
 
   const totalFresco = periodo.reduce((s,b)=>s+b.peso_fresco,0);
   const totalSeco = periodo.reduce((s,b)=>s+(b.peso_final||0),0);
-  const conversion = totalFresco>0 ? (totalSeco/totalFresco*100) : 0;
+  const conversion = totalSeco>0 ? (totalSeco/totalFresco*100) : null;
   const enBodega = DATA.baches.filter(b=>b.etapaIdx===7).reduce((s,b)=>s+kgEnBodegaSinDespachar(b),0);
 
   document.getElementById('dash-kpis').innerHTML = `
     <div class="dash-card kpi"><div class="n">${(totalFresco/1000).toFixed(1)}</div><div class="label">Ton fresco ingresado (periodo)</div></div>
     <div class="dash-card kpi"><div class="n">${(totalSeco/1000).toFixed(1)}</div><div class="label">Ton seco procesado (periodo)</div></div>
-    <div class="dash-card kpi"><div class="n">${conversion.toFixed(1)}%</div><div class="label">% conversión real (seco / fresco × 100)</div></div>
+    <div class="dash-card kpi"><div class="n">${conversion!=null ? conversion.toFixed(1)+'%' : '—'}</div><div class="label">% conversión real (seco / fresco × 100)${conversion==null ? ' — aún sin cacao seco en el periodo' : ''}</div></div>
     <div class="dash-card kpi"><div class="n">${(enBodega/1000).toFixed(1)}</div><div class="label">Ton en bodega ahora</div></div>
   `;
 
@@ -312,14 +346,35 @@ function proyeccionCapacidadEtapas(dias){
   const activos = DATA.baches.filter(b=>ACTIVE_INDICES.includes(b.etapaIdx));
   const resultado = {};
   TIME_UNIDADES.forEach(idx=>{ resultado[idx] = new Array(dias).fill(0); });
+
+  const hoy = new Date(); hoy.setHours(0,0,0,0);
+
   activos.forEach(b=>{
-    const proy = computeProyeccion(b, dias);
-    proy.forEach((stageName, d)=>{
-      const idx = STAGES.indexOf(stageName);
-      if(resultado[idx] !== undefined){
-        resultado[idx][d] += b.peso_fresco;
-      }
-    });
+    // Construir el intervalo [inicio, fin) de cada etapa futura de este bache.
+    let cursor = new Date(b.horaInicioEtapa);
+    let lim = limiteHoras(b.etapaIdx);
+    let fin = new Date(cursor.getTime() + (lim!=null?lim:0)*3600000);
+    const intervalos = [{ idx: b.etapaIdx, inicio: cursor, fin }];
+    for(let i=b.etapaIdx+1; i<=6; i++){
+      const l = limiteHoras(i);
+      const inicio2 = fin;
+      fin = new Date(inicio2.getTime() + (l!=null?l:0)*3600000);
+      intervalos.push({ idx: i, inicio: inicio2, fin });
+    }
+
+    // Por cada día del horizonte, sumar el peso en TODAS las etapas cuyo
+    // intervalo se solape con ese día (no solo la etapa "de mediodía"), para
+    // no perder etapas cortas (p.ej. presecado de 8h) entre dos muestras.
+    for(let d=0; d<dias; d++){
+      const diaInicio = new Date(hoy); diaInicio.setDate(diaInicio.getDate()+d);
+      const diaFin = new Date(diaInicio); diaFin.setDate(diaFin.getDate()+1);
+      intervalos.forEach(iv=>{
+        if(resultado[iv.idx] === undefined) return;
+        if(iv.inicio < diaFin && iv.fin > diaInicio){
+          resultado[iv.idx][d] += b.peso_fresco;
+        }
+      });
+    }
   });
   return resultado;
 }
@@ -550,6 +605,7 @@ function render(){
   renderProcesadoSecoChart();
   renderDenomDonut();
   renderInventarioProceso();
+  renderDespachadoResumen();
   renderDashboardKPIs();
   renderProyeccionCapacidad();
   renderProyeccion();

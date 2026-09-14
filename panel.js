@@ -17,6 +17,7 @@ function renderMapaMaestroForm(){
 }
 
 async function guardarMapaMaestro(){
+  const nombre = getAdminNombre();
   DATA.mapaMaestro = {
     recepcion: parseFloat(document.getElementById('mm-recepcion').value) || 0,
     anaerobica: parseFloat(document.getElementById('mm-anaerobica').value) || 0,
@@ -24,24 +25,20 @@ async function guardarMapaMaestro(){
     presecado: parseFloat(document.getElementById('mm-presecado').value) || 0,
     secado: parseFloat(document.getElementById('mm-secado').value) || 0
   };
+  registrarMovimiento('Mapa maestro actualizado', JSON.stringify(DATA.mapaMaestro), nombre);
   await save();
   render();
 }
 
 function renderMaestroConversionForm(){
-  document.getElementById('mc-anaerobico').value = DATA.maestroConversion.anaerobico;
-  document.getElementById('mc-presecado').value = DATA.maestroConversion.presecado;
-  document.getElementById('mc-secador').value = DATA.maestroConversion.secador;
   document.getElementById('mc-seco').value = DATA.maestroConversion.seco;
 }
 
 async function guardarMaestroConversion(){
-  DATA.maestroConversion = {
-    anaerobico: parseFloat(document.getElementById('mc-anaerobico').value) || 0,
-    presecado: parseFloat(document.getElementById('mc-presecado').value) || 0,
-    secador: parseFloat(document.getElementById('mc-secador').value) || 0,
-    seco: parseFloat(document.getElementById('mc-seco').value) || 0
-  };
+  const nombre = getAdminNombre();
+  const valor = parseFloat(document.getElementById('mc-seco').value) || 0;
+  DATA.maestroConversion = { seco: valor };
+  registrarMovimiento('Maestro de conversión actualizado', `Cacao seco final: ${valor} kg/ton`, nombre);
   await save();
   render();
 }
@@ -78,6 +75,7 @@ async function liberarBache(codigo){
   b.liberado = true;
   b.liberadoPor = nombre;
   b.liberadoFecha = new Date().toISOString();
+  registrarMovimiento('Producto liberado', `Bache ${codigo}: ${b.peso_final} kg secos`, nombre);
   msg.innerHTML = '';
   await save();
   render();
@@ -148,6 +146,7 @@ async function crearLoteVenta(){
 
   const huboExcedente = seleccionados.some(b=>disponibleLV(b) > 0.01);
   lvSeleccionados.clear();
+  registrarMovimiento('Lote de venta generado', `${codigo}: ${(totalKg/1000).toFixed(2)} ton, baches ${usados.map(u=>u.b.codigo).join(', ')}`, nombre);
   msg.innerHTML = huboExcedente
     ? `<div class="msg ok">Lote ${codigo} generado por ${nombre} con ${(totalKg/1000).toFixed(2)} ton (tope 25 ton). El excedente queda disponible para un próximo lote.</div>`
     : `<div class="msg ok">Lote ${codigo} generado por ${nombre} con ${(totalKg/1000).toFixed(2)} ton.</div>`;
@@ -287,27 +286,39 @@ async function cargarEjemplo(){
     despacho: null
   }];
   DATA.lvConsecutivo = 1;
-  opSeleccionado = null;
+  registrarMovimiento('Datos de ejemplo cargados', '9 baches de ejemplo + LV-0001', getAdminNombre());
   await save();
-  document.getElementById('ejemplo-msg').innerHTML = '<div class="msg ok">9 baches de ejemplo cargados, incluyendo uno excedido y un lote de venta ya consolidado. Revisa las pestañas Operación, Trazabilidad y Dashboard.</div>';
+  document.getElementById('ejemplo-msg').innerHTML = '<div class="msg ok">9 baches de ejemplo cargados, incluyendo uno excedido y un lote de venta ya consolidado. Revisa las páginas Captura y Tablero.</div>';
   render();
 }
 
-/* ---------- REGISTRO ---------- */
-
 async function borrarBaches(){
+  const nombre = getAdminNombre();
   DATA.baches = [];
   DATA.lotes = [];
   DATA.lvConsecutivo = 0;
-  opSeleccionado = null;
-  traceSeleccionado = null;
   lvSeleccionados.clear();
+  registrarMovimiento('Baches borrados (prueba)', 'Se vació toda la base de baches y lotes', nombre);
   await save();
   document.getElementById('ejemplo-msg').innerHTML = '<div class="msg ok">Todos los baches y lotes fueron borrados.</div>';
   render();
 }
 
-/* ---------- PROYECCIÓN ---------- */
+/* ---------- REGISTRO DE MOVIMIENTOS ---------- */
+function renderMovimientos(){
+  const filtro = (document.getElementById('mov-filtro').value || '').trim().toLowerCase();
+  const lista = (DATA.movimientos || []).filter(m=>{
+    if(!filtro) return true;
+    return (m.accion+' '+m.detalle+' '+m.usuario).toLowerCase().includes(filtro);
+  }).slice(0, 150);
+
+  document.getElementById('admin-movimientos-lista').innerHTML = lista.length ? lista.map(m=>`
+    <div class="lv-history-item">
+      <div class="op-meta">${fmtDateTime(new Date(m.fecha))}</div>
+      <div><b>${m.accion}</b> — ${m.detalle}</div>
+      <div class="op-meta">Por: ${m.usuario}</div>
+    </div>`).join('') : '<div class="empty">No hay movimientos registrados todavía.</div>';
+}
 
 /* ---------- SUB-PESTAÑAS DE ADMINISTRADOR ---------- */
 function inicializarAdminTabs(){
@@ -329,6 +340,7 @@ function render(){
   renderFueraDeNorma();
   renderLiberacion();
   renderLotesPool();
+  renderMovimientos();
 }
 
 inicializarAdminTabs();
@@ -340,5 +352,6 @@ document.getElementById('btn-export-lotes').addEventListener('click', exportarLo
 document.getElementById('input-restore').addEventListener('change', restaurarBackup);
 document.getElementById('btn-ejemplo').addEventListener('click', cargarEjemplo);
 document.getElementById('btn-borrar').addEventListener('click', borrarBaches);
+document.getElementById('mov-filtro').addEventListener('input', renderMovimientos);
 
 load();

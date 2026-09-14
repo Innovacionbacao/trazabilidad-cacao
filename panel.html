@@ -42,6 +42,7 @@
       <button class="admin-tab active" data-admintab="config">Configuración</button>
       <button class="admin-tab" data-admintab="seguimiento">Seguimiento</button>
       <button class="admin-tab" data-admintab="lotes">Lotes de venta</button>
+      <button class="admin-tab" data-admintab="movimientos">Movimientos</button>
       <button class="admin-tab" data-admintab="datos">Datos</button>
     </nav>
 
@@ -57,12 +58,9 @@
       <button class="secondary" id="btn-guardar-mapa">Guardar mapa maestro</button>
 
       <div class="section-gap">
-        <p class="block-title">Maestro de conversión (kg de cacao por tonelada de fruto fresco)</p>
+        <p class="block-title">Maestro de conversión (referencia para estimar cacao seco)</p>
         <div class="mapa-form">
-          <div class="field"><label>Fermentado anaeróbico (kg/ton)</label><input type="number" id="mc-anaerobico"></div>
-          <div class="field"><label>Presecado (kg/ton)</label><input type="number" id="mc-presecado"></div>
-          <div class="field"><label>Secador (kg/ton)</label><input type="number" id="mc-secador"></div>
-          <div class="field"><label>Cacao seco final (kg/ton)</label><input type="number" id="mc-seco"></div>
+          <div class="field"><label>Cacao seco final (kg por tonelada de fruto fresco)</label><input type="number" id="mc-seco"></div>
         </div>
         <button class="secondary" id="btn-guardar-conversion">Guardar maestro de conversión</button>
       </div>
@@ -82,6 +80,14 @@
       <p class="block-title">Generar lote de venta (baches liberados)</p>
       <div class="tabs-lv" id="lv-tabs"></div>
       <div class="lv-pool" id="lv-pool"></div>
+    </div>
+
+    <div class="admin-panel" id="admin-movimientos">
+      <p class="block-title">Registro de movimientos</p>
+      <div class="mapa-form" style="max-width:500px; margin-bottom:16px;">
+        <div class="field"><label>Buscar (bache, lote, acción o usuario)</label><input type="text" id="mov-filtro"></div>
+      </div>
+      <div class="lv-history" id="admin-movimientos-lista"></div>
     </div>
 
     <div class="admin-panel" id="admin-datos">

@@ -51,9 +51,14 @@ async function registrarBache(){
   const peso = parseFloat(document.getElementById('f-peso').value);
   const bascula = document.getElementById('f-bascula').value.trim();
   const directo = document.getElementById('f-directo').checked;
+  const operario = getOperario();
   const msg = document.getElementById('form-msg');
   msg.innerHTML = '';
 
+  if(!operario){
+    msg.innerHTML = '<div class="msg err">Escribe tu nombre en "Operario" arriba antes de registrar.</div>';
+    return;
+  }
   if(!fh || !peso || peso<=0 || !bascula){
     msg.innerHTML = '<div class="msg err">Completa fecha/hora, peso y báscula.</div>';
     return;
@@ -69,6 +74,7 @@ async function registrarBache(){
     }
     existente.basculas.push({numero: bascula, peso, hora: horaEntrada.toISOString()});
     existente.peso_fresco += peso;
+    registrarMovimiento('Pesaje agregado', `Bache ${codigo}: +${peso} kg (báscula ${bascula}), total ${existente.peso_fresco} kg`, operario);
     await save();
     msg.innerHTML = `<div class="msg ok">Se agregó el pesaje de báscula ${bascula} (${peso} kg) al bache ${codigo}. Total acumulado: ${existente.peso_fresco} kg.</div>`;
   } else {
@@ -92,6 +98,7 @@ async function registrarBache(){
       peso_final: null, peso_g1: null, peso_g2: null, peso_impurezas: null,
       humedadSalida: null, liberado: false, lvAsignaciones: []
     });
+    registrarMovimiento('Bache creado', `Bache ${codigo}: ${peso} kg (báscula ${bascula})${directo ? ', directo a F. anaeróbica' : ', en recepción de bines'}`, operario);
     await save();
     msg.innerHTML = directo
       ? `<div class="msg ok">Bache ${codigo} creado, enviado directo a F. anaeróbica.</div>`
@@ -102,8 +109,6 @@ async function registrarBache(){
   document.getElementById('f-directo').checked = false;
   render();
 }
-
-/* ---------- OPERACIÓN ---------- */
 
 /* ---------- OPERACIÓN ---------- */
 function seleccionarOp(codigo){
@@ -117,6 +122,12 @@ async function avanzarEtapa(codigo){
   const cantInput = document.getElementById('mov-cantidad-'+codigo);
   const horaReal = horaInput.value ? new Date(horaInput.value) : new Date();
   const msgEl = document.getElementById('mov-msg-'+codigo);
+  const operario = getOperario();
+
+  if(!operario){
+    msgEl.innerHTML = '<div class="msg err">Escribe tu nombre en "Operario" arriba antes de mover el bache.</div>';
+    return;
+  }
 
   let cantidad = cantInput ? parseFloat(cantInput.value) : b.peso_fresco;
   if(isNaN(cantidad) || cantidad <= 0){
@@ -163,6 +174,7 @@ async function avanzarEtapa(codigo){
     humedadSalida: target.etapaIdx===5 ? target.humedadSalida : undefined
   });
 
+  const etapaOrigen = STAGES[target.etapaIdx];
   let siguienteIdx = target.etapaIdx + 1;
   if(STAGES[siguienteIdx] === 'Despulpado'){
     target.historial.push({
@@ -175,6 +187,11 @@ async function avanzarEtapa(codigo){
 
   target.etapaIdx = siguienteIdx;
   target.horaInicioEtapa = horaReal.toISOString();
+  registrarMovimiento(
+    'Cambio de etapa',
+    `Bache ${target.codigo}${esParcial ? ` (parcial de ${b.codigo}, ${cantidad} kg)` : ''}: ${etapaOrigen} → ${STAGES[siguienteIdx]}`,
+    operario
+  );
   opSeleccionado = null;
   await save();
   render();
@@ -192,6 +209,11 @@ async function registrarEmpaque(codigo){
   const horaReal = horaInput.value ? new Date(horaInput.value) : new Date();
   const pesoFinal = g1 + g2;
   const msgEl = document.getElementById('mov-msg-'+codigo);
+  const operario = getOperario();
+  if(!operario){
+    msgEl.innerHTML = '<div class="msg err">Escribe tu nombre en "Operario" arriba antes de registrar el empaque.</div>';
+    return;
+  }
   if(pesoFinal <= 0) return;
 
   const factor = pesoFinal / b.peso_fresco;
@@ -220,6 +242,7 @@ async function registrarEmpaque(codigo){
   b.etapaIdx = 7;
   b.liberado = false;
   b.horaInicioEtapa = horaReal.toISOString();
+  registrarMovimiento('Empaque registrado', `Bache ${b.codigo}: G1 ${g1} kg, G2 ${g2} kg, impurezas ${imp} kg (total ${pesoFinal} kg)`, operario);
   opSeleccionado = null;
   await save();
   render();
@@ -230,6 +253,9 @@ async function toggleAireacion(codigo, dia){
   const item = b.aireacion.find(a=>a.dia===dia);
   item.hecho = !item.hecho;
   item.hora = item.hecho ? new Date().toISOString() : null;
+  if(item.hecho){
+    registrarMovimiento('Aireación marcada', `Bache ${codigo}: día ${dia}`, getOperario());
+  }
   await save();
   render();
 }
@@ -352,8 +378,6 @@ function renderOpDashGrid(){
   grid.innerHTML = html;
 }
 
-/* ---------- TRAZABILIDAD ---------- */
-
 /* ---------- FLUJO Y CAPACIDAD ---------- */
 function renderFlujo(){
   const boxW = 128, boxH = 96, gap = 42, startX = 16, y = 14;
@@ -402,7 +426,8 @@ function renderCapTable(){
   document.getElementById('cap-table').innerHTML = rows;
 }
 
-/* ---------- DASHBOARD ---------- */
+/* ---------- OPERARIO (identificación de quien usa la tableta) ---------- */
+function getOperario(){ return document.getElementById('operario-nombre').value.trim(); }
 
 /* ---------- RENDER Y ARRANQUE DE ESTA PÁGINA ---------- */
 function render(){
@@ -422,5 +447,11 @@ document.getElementById('f-peso').addEventListener('input', updateCodigoPreview)
 document.getElementById('f-directo').addEventListener('change', updateCodigoPreview);
 document.getElementById('btn-registrar').addEventListener('click', registrarBache);
 document.getElementById('f-fecha').value = toLocalInputValue(new Date());
+
+const operarioInput = document.getElementById('operario-nombre');
+try{ operarioInput.value = localStorage.getItem('operario-nombre') || ''; }catch(e){ /* sin localStorage */ }
+operarioInput.addEventListener('input', ()=>{
+  try{ localStorage.setItem('operario-nombre', operarioInput.value.trim()); }catch(e){ /* sin localStorage */ }
+});
 
 load();

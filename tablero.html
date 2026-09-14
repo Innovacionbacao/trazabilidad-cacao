@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trazabilidad PHC — Tablero</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header>
+  <div class="header-brand">
+    <img src="logo-bacao.png" alt="Bacao" class="brand-logo">
+    <div class="header-titles">
+      <h1>Trazabilidad PHC</h1>
+      <span class="sub" id="fecha-hoy"></span>
+      <span class="sub" id="sync-status" style="color:var(--warn);"></span>
+    </div>
+  </div>
+  <span class="page-role">Tablero gerencial</span>
+</header>
+
+<div class="page-links">
+  <a href="index.html">Captura</a>
+  <span>·</span>
+  <a href="tablero.html" class="current">Tablero</a>
+  <span>·</span>
+  <a href="panel.html">Panel</a>
+</div>
+
+<nav class="tabs">
+  <button data-tab="dashboard" class="active">Dashboard</button>
+  <button data-tab="proyeccion">Proyección</button>
+  <button data-tab="trazabilidad">Trazabilidad</button>
+  <button data-tab="lotes">Inventario</button>
+</nav>
+
+<main>
+
+  <div class="panel active" id="panel-dashboard">
+    <div class="dash-header">
+      <div>
+        <h2 class="dash-title">Panel gerencial</h2>
+        <span class="sub" id="dash-fecha-reporte"></span>
+      </div>
+      <div class="dash-actions">
+        <button class="secondary" id="btn-export-dashboard-csv">Exportar tabla (CSV)</button>
+        <button class="secondary" id="btn-print-dashboard">Imprimir / PDF</button>
+      </div>
+    </div>
+
+    <div class="report-card">
+      <p class="block-title">Filtros</p>
+      <div class="mapa-form">
+        <div class="field"><label>Año</label><select id="dash-anio"></select></div>
+        <div class="field"><label>Mes</label>
+          <select id="dash-mes">
+            <option value="todos">Todos</option>
+            <option value="01">Enero</option><option value="02">Febrero</option><option value="03">Marzo</option>
+            <option value="04">Abril</option><option value="05">Mayo</option><option value="06">Junio</option>
+            <option value="07">Julio</option><option value="08">Agosto</option><option value="09">Septiembre</option>
+            <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
+          </select>
+        </div>
+        <div class="field"><label>Denominación</label>
+          <select id="dash-denom">
+            <option value="todas">Todas</option>
+            <option value="ccn51">CCN-51</option>
+            <option value="aromatico">Aromático</option>
+            <option value="upia">Upia</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="dash-grid" id="dash-kpis" style="margin-bottom:22px;"></div>
+
+    <div class="report-card">
+      <p class="block-title">Fruto fresco ingresado</p>
+      <div id="procesado-chart" style="overflow-x:auto;"></div>
+    </div>
+
+    <div class="report-card">
+      <p class="block-title">Cacao seco procesado (empacado)</p>
+      <div id="procesado-seco-chart" style="overflow-x:auto;"></div>
+    </div>
+
+    <div class="report-card">
+      <p class="block-title">Distribución por denominación</p>
+      <div id="denom-donut"></div>
+    </div>
+
+    <div class="report-card">
+      <p class="block-title">Inventario en proceso (equivalente a cacao seco, estimado)</p>
+      <div id="inventario-proceso"></div>
+    </div>
+
+    <div class="report-card">
+      <p class="block-title">Inventario en bodega (cacao seco real, sin despachar)</p>
+      <div id="inventario-bodega"></div>
+    </div>
+  </div>
+
+  <div class="panel" id="panel-proyeccion">
+    <p class="block-title">Proyección de saturación de capacidad por etapa (próximos 7 días)</p>
+    <div id="proy-capacidad-alertas" style="margin-bottom:12px;"></div>
+    <div id="proy-capacidad-wrap" style="overflow-x:auto; margin-bottom:28px;"></div>
+
+    <p class="block-title">Proyección de etapa por bache (próximos 7 días)</p>
+    <div id="proy-wrap"></div>
+
+    <div class="section-gap">
+      <p class="block-title">Proyección de bodega y sugerencia de despacho (factor de conversión 0.36)</p>
+      <div id="proy-bodega-chart" style="overflow-x:auto; margin-bottom:12px;"></div>
+      <div id="proy-bodega-sugerencia"></div>
+    </div>
+  </div>
+
+  <div class="panel" id="panel-trazabilidad">
+    <p class="block-title">Filtros</p>
+    <div class="mapa-form" style="margin-bottom:20px;">
+      <div class="field"><label>Denominación</label>
+        <select id="trace-f-denom">
+          <option value="todas">Todas</option>
+          <option value="ccn51">CCN-51</option>
+          <option value="aromatico">Aromático</option>
+          <option value="upia">Upia</option>
+        </select>
+      </div>
+      <div class="field"><label>Desde</label><input type="date" id="trace-f-desde"></div>
+      <div class="field"><label>Hasta</label><input type="date" id="trace-f-hasta"></div>
+      <div class="field"><label>Área / etapa</label><select id="trace-f-area"></select></div>
+    </div>
+    <div style="display:flex; align-items:center; gap:8px; margin-bottom:20px;">
+      <input type="checkbox" id="trace-f-despachados" style="width:auto;">
+      <label for="trace-f-despachados" style="font-size:13px; color:var(--ink-dim);">Incluir baches ya despachados</label>
+    </div>
+    <p class="block-title">Historial completo por bache</p>
+    <div class="op-list" id="trace-list"></div>
+  </div>
+
+  <div class="panel" id="panel-lotes">
+    <p class="block-title">Empacado en bodega (pendiente de lote de venta)</p>
+    <div class="lv-history" id="inventario-empacado"></div>
+
+    <div class="section-gap">
+      <p class="block-title">Lotes de venta generados</p>
+      <div class="lv-history" id="lv-history"></div>
+    </div>
+  </div>
+
+</main>
+
+<script src="shared.js"></script>
+<script src="tablero.js"></script>
+</body>
+</html>

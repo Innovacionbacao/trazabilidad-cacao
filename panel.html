@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trazabilidad PHC — Panel</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header>
+  <div class="header-brand">
+    <img src="logo-bacao.png" alt="Bacao" class="brand-logo">
+    <div class="header-titles">
+      <h1>Trazabilidad PHC</h1>
+      <span class="sub" id="fecha-hoy"></span>
+      <span class="sub" id="sync-status" style="color:var(--warn);"></span>
+    </div>
+  </div>
+  <span class="page-role">Panel administrador</span>
+</header>
+
+<div class="page-links">
+  <a href="index.html">Captura</a>
+  <span>·</span>
+  <a href="tablero.html">Tablero</a>
+  <span>·</span>
+  <a href="panel.html" class="current">Panel</a>
+</div>
+
+
+<main>
+
+  <div class="panel active" id="panel-administrador">
+    <p class="block-title">Identificación</p>
+    <div class="mapa-form" style="max-width:400px;">
+      <div class="field"><label>Nombre del jefe de producción</label><input type="text" id="admin-nombre" placeholder="Requerido para liberar y generar lotes"></div>
+    </div>
+    <div id="admin-msg"></div>
+
+    <nav class="admin-subtabs">
+      <button class="admin-tab active" data-admintab="config">Configuración</button>
+      <button class="admin-tab" data-admintab="seguimiento">Seguimiento</button>
+      <button class="admin-tab" data-admintab="lotes">Lotes de venta</button>
+      <button class="admin-tab" data-admintab="datos">Datos</button>
+    </nav>
+
+    <div class="admin-panel active" id="admin-config">
+      <p class="block-title">Mapa maestro de producción (horas límite por etapa)</p>
+      <div class="mapa-form">
+        <div class="field"><label>Recepción en bines (h)</label><input type="number" id="mm-recepcion"></div>
+        <div class="field"><label>F. anaeróbica (h)</label><input type="number" id="mm-anaerobica"></div>
+        <div class="field"><label>F. aeróbica (h)</label><input type="number" id="mm-aerobica"></div>
+        <div class="field"><label>Presecado (h)</label><input type="number" id="mm-presecado"></div>
+        <div class="field"><label>Secado (h)</label><input type="number" id="mm-secado"></div>
+      </div>
+      <button class="secondary" id="btn-guardar-mapa">Guardar mapa maestro</button>
+
+      <div class="section-gap">
+        <p class="block-title">Maestro de conversión (kg de cacao por tonelada de fruto fresco)</p>
+        <div class="mapa-form">
+          <div class="field"><label>Fermentado anaeróbico (kg/ton)</label><input type="number" id="mc-anaerobico"></div>
+          <div class="field"><label>Presecado (kg/ton)</label><input type="number" id="mc-presecado"></div>
+          <div class="field"><label>Secador (kg/ton)</label><input type="number" id="mc-secador"></div>
+          <div class="field"><label>Cacao seco final (kg/ton)</label><input type="number" id="mc-seco"></div>
+        </div>
+        <button class="secondary" id="btn-guardar-conversion">Guardar maestro de conversión</button>
+      </div>
+    </div>
+
+    <div class="admin-panel" id="admin-seguimiento">
+      <p class="block-title">Baches fuera de norma (seguimiento especial)</p>
+      <div class="lv-history" id="admin-fuera-norma"></div>
+
+      <div class="section-gap">
+        <p class="block-title">Liberación de producto a inventario</p>
+        <div class="lv-history" id="admin-liberacion"></div>
+      </div>
+    </div>
+
+    <div class="admin-panel" id="admin-lotes">
+      <p class="block-title">Generar lote de venta (baches liberados)</p>
+      <div class="tabs-lv" id="lv-tabs"></div>
+      <div class="lv-pool" id="lv-pool"></div>
+    </div>
+
+    <div class="admin-panel" id="admin-datos">
+      <p class="block-title">Respaldo y exportación de datos</p>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:10px;">
+        <button class="secondary" id="btn-backup">Descargar backup completo (JSON)</button>
+        <button class="secondary" id="btn-export-baches">Exportar baches (CSV)</button>
+        <button class="secondary" id="btn-export-lotes">Exportar lotes de venta (CSV)</button>
+      </div>
+      <div class="field" style="max-width:400px;">
+        <label>Restaurar backup (JSON)</label>
+        <input type="file" id="input-restore" accept="application/json">
+      </div>
+      <div id="backup-msg"></div>
+
+      <div class="section-gap">
+        <p class="block-title">Herramientas de prueba</p>
+        <button class="secondary" id="btn-ejemplo">Cargar baches de ejemplo</button>
+        <button class="secondary" id="btn-borrar" style="border-color:var(--warn); color:var(--warn);">Borrar todos los baches (pruebas)</button>
+        <div id="ejemplo-msg"></div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script src="shared.js"></script>
+<script src="panel.js"></script>
+</body>
+</html>

@@ -3,30 +3,38 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Trazabilidad de Baches</title>
+<title>Trazabilidad PHC — Captura</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
 <header>
-  <h1>Trazabilidad de baches</h1>
-  <span class="sub" id="fecha-hoy"></span>
-  <span class="sub" id="sync-status" style="color:var(--warn);"></span>
+  <div class="header-brand">
+    <img src="logo-bacao.png" alt="Bacao" class="brand-logo">
+    <div class="header-titles">
+      <h1>Trazabilidad PHC</h1>
+      <span class="sub" id="fecha-hoy"></span>
+      <span class="sub" id="sync-status" style="color:var(--warn);"></span>
+    </div>
+  </div>
+  <span class="page-role">Captura</span>
 </header>
+
+<div class="page-links">
+  <a href="index.html" class="current">Captura</a>
+  <span>·</span>
+  <a href="tablero.html">Tablero</a>
+  <span>·</span>
+  <a href="panel.html">Panel</a>
+</div>
 
 <nav class="tabs">
   <button data-tab="registro" class="active">Registro</button>
   <button data-tab="operacion">Operación</button>
-  <button data-tab="trazabilidad">Trazabilidad</button>
-  <button data-tab="dashboard">Dashboard</button>
-  <button data-tab="proyeccion">Proyección</button>
-  <button data-tab="lotes">Inventario</button>
-  <button data-tab="administrador">Administrador</button>
 </nav>
 
 <main>
 
-  <!-- REGISTRO -->
   <div class="panel active" id="panel-registro">
     <p class="block-title">Recepción reciente</p>
     <div class="dash-grid" id="resumen-hoy-ayer" style="margin-bottom:24px;"></div>
@@ -62,15 +70,8 @@
     <div class="preview-codigo" id="bines-preview"></div>
     <div id="form-msg"></div>
     <button id="btn-registrar" style="margin-top:12px;">Registrar pesaje</button>
-
-    <div class="section-gap">
-      <button class="secondary" id="btn-ejemplo">Cargar baches de ejemplo</button>
-      <button class="secondary" id="btn-borrar" style="border-color:var(--warn); color:var(--warn);">Borrar todos los baches (pruebas)</button>
-      <div id="ejemplo-msg"></div>
-    </div>
   </div>
 
-  <!-- OPERACIÓN -->
   <div class="panel" id="panel-operacion">
     <p class="block-title">Flujo de inventario</p>
     <div style="overflow-x:auto; margin-bottom:26px;"><div id="flujo-svg"></div></div>
@@ -85,193 +86,9 @@
     <div id="op-list"></div>
   </div>
 
-  <!-- TRAZABILIDAD -->
-  <div class="panel" id="panel-trazabilidad">
-    <p class="block-title">Filtros</p>
-    <div class="mapa-form" style="margin-bottom:20px;">
-      <div class="field"><label>Denominación</label>
-        <select id="trace-f-denom">
-          <option value="todas">Todas</option>
-          <option value="ccn51">CCN-51</option>
-          <option value="aromatico">Aromático</option>
-          <option value="upia">Upia</option>
-        </select>
-      </div>
-      <div class="field"><label>Desde</label><input type="date" id="trace-f-desde"></div>
-      <div class="field"><label>Hasta</label><input type="date" id="trace-f-hasta"></div>
-      <div class="field"><label>Área / etapa</label><select id="trace-f-area"></select></div>
-    </div>
-    <div style="display:flex; align-items:center; gap:8px; margin-bottom:20px;">
-      <input type="checkbox" id="trace-f-despachados" style="width:auto;">
-      <label for="trace-f-despachados" style="font-size:13px; color:var(--ink-dim);">Incluir baches ya despachados</label>
-    </div>
-    <p class="block-title">Historial completo por bache</p>
-    <div class="op-list" id="trace-list"></div>
-  </div>
-
-  <!-- DASHBOARD -->
-  <div class="panel" id="panel-dashboard">
-    <div class="dash-header">
-      <div>
-        <h2 class="dash-title">Panel gerencial</h2>
-        <span class="sub" id="dash-fecha-reporte"></span>
-      </div>
-      <div class="dash-actions">
-        <button class="secondary" id="btn-export-dashboard-csv">Exportar tabla (CSV)</button>
-        <button class="secondary" id="btn-print-dashboard">Imprimir / PDF</button>
-      </div>
-    </div>
-
-    <div class="report-card">
-      <p class="block-title">Filtros</p>
-      <div class="mapa-form">
-        <div class="field"><label>Año</label><select id="dash-anio"></select></div>
-        <div class="field"><label>Mes</label>
-          <select id="dash-mes">
-            <option value="todos">Todos</option>
-            <option value="01">Enero</option><option value="02">Febrero</option><option value="03">Marzo</option>
-            <option value="04">Abril</option><option value="05">Mayo</option><option value="06">Junio</option>
-            <option value="07">Julio</option><option value="08">Agosto</option><option value="09">Septiembre</option>
-            <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
-          </select>
-        </div>
-        <div class="field"><label>Denominación</label>
-          <select id="dash-denom">
-            <option value="todas">Todas</option>
-            <option value="ccn51">CCN-51</option>
-            <option value="aromatico">Aromático</option>
-            <option value="upia">Upia</option>
-          </select>
-        </div>
-      </div>
-    </div>
-
-    <div class="dash-grid" id="dash-kpis" style="margin-bottom:22px;"></div>
-
-    <div class="report-card">
-      <p class="block-title">Fruto fresco ingresado</p>
-      <div id="procesado-chart" style="overflow-x:auto;"></div>
-    </div>
-
-    <div class="report-card">
-      <p class="block-title">Cacao seco procesado (empacado)</p>
-      <div id="procesado-seco-chart" style="overflow-x:auto;"></div>
-    </div>
-
-    <div class="report-card">
-      <p class="block-title">Distribución por denominación</p>
-      <div id="denom-donut"></div>
-    </div>
-
-    <div class="report-card">
-      <p class="block-title">Inventario en proceso (equivalente a cacao seco, estimado)</p>
-      <div id="inventario-proceso"></div>
-    </div>
-
-    <div class="report-card">
-      <p class="block-title">Inventario en bodega (cacao seco real, sin despachar)</p>
-      <div id="inventario-bodega"></div>
-    </div>
-  </div>
-
-  <!-- PROYECCIÓN -->
-  <div class="panel" id="panel-proyeccion">
-    <p class="block-title">Proyección de saturación de capacidad por etapa (próximos 7 días)</p>
-    <div id="proy-capacidad-alertas" style="margin-bottom:12px;"></div>
-    <div id="proy-capacidad-wrap" style="overflow-x:auto; margin-bottom:28px;"></div>
-
-    <p class="block-title">Proyección de etapa por bache (próximos 7 días)</p>
-    <div id="proy-wrap"></div>
-
-    <div class="section-gap">
-      <p class="block-title">Proyección de bodega y sugerencia de despacho (factor de conversión 0.36)</p>
-      <div id="proy-bodega-chart" style="overflow-x:auto; margin-bottom:12px;"></div>
-      <div id="proy-bodega-sugerencia"></div>
-    </div>
-  </div>
-
-  <!-- LOTES -->
-  <div class="panel" id="panel-lotes">
-    <p class="block-title">Empacado en bodega (pendiente de lote de venta)</p>
-    <div class="lv-history" id="inventario-empacado"></div>
-
-    <div class="section-gap">
-      <p class="block-title">Lotes de venta generados</p>
-      <div class="lv-history" id="lv-history"></div>
-    </div>
-  </div>
-
-  <!-- ADMINISTRADOR -->
-  <div class="panel" id="panel-administrador">
-    <p class="block-title">Identificación</p>
-    <div class="mapa-form" style="max-width:400px;">
-      <div class="field"><label>Nombre del jefe de producción</label><input type="text" id="admin-nombre" placeholder="Requerido para liberar y generar lotes"></div>
-    </div>
-    <div id="admin-msg"></div>
-
-    <nav class="admin-subtabs">
-      <button class="admin-tab active" data-admintab="config">Configuración</button>
-      <button class="admin-tab" data-admintab="seguimiento">Seguimiento</button>
-      <button class="admin-tab" data-admintab="lotes">Lotes de venta</button>
-      <button class="admin-tab" data-admintab="datos">Datos</button>
-    </nav>
-
-    <div class="admin-panel active" id="admin-config">
-      <p class="block-title">Mapa maestro de producción (horas límite por etapa)</p>
-      <div class="mapa-form">
-        <div class="field"><label>Recepción en bines (h)</label><input type="number" id="mm-recepcion"></div>
-        <div class="field"><label>F. anaeróbica (h)</label><input type="number" id="mm-anaerobica"></div>
-        <div class="field"><label>F. aeróbica (h)</label><input type="number" id="mm-aerobica"></div>
-        <div class="field"><label>Presecado (h)</label><input type="number" id="mm-presecado"></div>
-        <div class="field"><label>Secado (h)</label><input type="number" id="mm-secado"></div>
-      </div>
-      <button class="secondary" id="btn-guardar-mapa">Guardar mapa maestro</button>
-
-      <div class="section-gap">
-        <p class="block-title">Maestro de conversión (kg de cacao por tonelada de fruto fresco)</p>
-        <div class="mapa-form">
-          <div class="field"><label>Fermentado anaeróbico (kg/ton)</label><input type="number" id="mc-anaerobico"></div>
-          <div class="field"><label>Presecado (kg/ton)</label><input type="number" id="mc-presecado"></div>
-          <div class="field"><label>Secador (kg/ton)</label><input type="number" id="mc-secador"></div>
-          <div class="field"><label>Cacao seco final (kg/ton)</label><input type="number" id="mc-seco"></div>
-        </div>
-        <button class="secondary" id="btn-guardar-conversion">Guardar maestro de conversión</button>
-      </div>
-    </div>
-
-    <div class="admin-panel" id="admin-seguimiento">
-      <p class="block-title">Baches fuera de norma (seguimiento especial)</p>
-      <div class="lv-history" id="admin-fuera-norma"></div>
-
-      <div class="section-gap">
-        <p class="block-title">Liberación de producto a inventario</p>
-        <div class="lv-history" id="admin-liberacion"></div>
-      </div>
-    </div>
-
-    <div class="admin-panel" id="admin-lotes">
-      <p class="block-title">Generar lote de venta (baches liberados)</p>
-      <div class="tabs-lv" id="lv-tabs"></div>
-      <div class="lv-pool" id="lv-pool"></div>
-    </div>
-
-    <div class="admin-panel" id="admin-datos">
-      <p class="block-title">Respaldo y exportación de datos</p>
-      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:10px;">
-        <button class="secondary" id="btn-backup">Descargar backup completo (JSON)</button>
-        <button class="secondary" id="btn-export-baches">Exportar baches (CSV)</button>
-        <button class="secondary" id="btn-export-lotes">Exportar lotes de venta (CSV)</button>
-      </div>
-      <div class="field" style="max-width:400px;">
-        <label>Restaurar backup (JSON)</label>
-        <input type="file" id="input-restore" accept="application/json">
-      </div>
-      <div id="backup-msg"></div>
-    </div>
-  </div>
-
 </main>
 
-<script src="app.js"></script>
+<script src="shared.js"></script>
+<script src="captura.js"></script>
 </body>
 </html>

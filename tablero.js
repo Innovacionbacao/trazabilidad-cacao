@@ -242,7 +242,7 @@ function renderInventarioProceso(){
   let totalEquiv = 0;
   const porDenomProceso = {ccn51:0, aromatico:0, upia:0};
   enProceso.forEach(b=>{
-    const eq = b.peso_fresco * (factorEquivalenteSeco(b.etapaIdx)/1000);
+    const eq = b.peso_fresco * factorConversionActual();
     totalEquiv += eq;
     porDenomProceso[b.denom] += eq;
   });
@@ -284,7 +284,7 @@ function renderDashboardKPIs(){
   document.getElementById('dash-kpis').innerHTML = `
     <div class="dash-card kpi"><div class="n">${(totalFresco/1000).toFixed(1)}</div><div class="label">Ton fresco ingresado (periodo)</div></div>
     <div class="dash-card kpi"><div class="n">${(totalSeco/1000).toFixed(1)}</div><div class="label">Ton seco procesado (periodo)</div></div>
-    <div class="dash-card kpi"><div class="n">${conversion.toFixed(1)}%</div><div class="label">Conversión promedio</div></div>
+    <div class="dash-card kpi"><div class="n">${conversion.toFixed(1)}%</div><div class="label">% conversión real (seco / fresco × 100)</div></div>
     <div class="dash-card kpi"><div class="n">${(enBodega/1000).toFixed(1)}</div><div class="label">Ton en bodega ahora</div></div>
   `;
 
@@ -418,7 +418,7 @@ function proyeccionBodega(dias){
       const l = limiteHoras(i);
       cursor = new Date(cursor.getTime() + (l!=null?l:0)*3600000);
     }
-    arrivals.push({fecha: cursor, kg: b.peso_fresco * FACTOR_CONVERSION, codigo: b.codigo, denom: b.denom});
+    arrivals.push({fecha: cursor, kg: b.peso_fresco * factorConversionActual(), codigo: b.codigo, denom: b.denom});
   });
 
   const timeline = [];
@@ -435,6 +435,7 @@ function proyeccionBodega(dias){
 
 function renderProyeccionBodega(){
   const dias = 21;
+  document.getElementById('proy-bodega-factor').textContent = `Factor de conversión de referencia: ${DATA.maestroConversion.seco} kg de seco por tonelada de fresco (editable en Panel → Configuración).`;
   const timeline = proyeccionBodega(dias);
   const capKg = ALMACEN_CAP.totalTon * 1000;
   const max = Math.max(capKg, ...timeline.map(t=>t.kg)) * 1.15;
@@ -507,6 +508,7 @@ async function despacharLote(codigo){
   }
   const hora = horaInput.value ? new Date(horaInput.value) : new Date();
   l.despacho = { fecha: hora.toISOString(), encargado, remision, empresa };
+  registrarMovimiento('Lote despachado', `${codigo}: remisión ${remision}, transporta ${empresa}`, encargado);
   await save();
   render();
 }

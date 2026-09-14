@@ -34,7 +34,7 @@ const CAPACIDAD = {
 const ALMACEN_CAP = { totalTon:200, m2PorTon: 4/6 };
 // Factor teórico de conversión fruto fresco -> cacao a almacenado, para proyectar bodega
 
-const FACTOR_CONVERSION = 0.36;
+function factorConversionActual(){ return (DATA.maestroConversion.seco || 360) / 1000; }
 
 const MAX_KG_LOTE_VENTA = 25000;
 
@@ -45,7 +45,8 @@ let DATA = {
   lotes: [],
   lvConsecutivo: 0,
   mapaMaestro: { recepcion:14, anaerobica:48, aerobica:48, presecado:8, secado:18 },
-  maestroConversion: { anaerobico:800, presecado:720, secador:600, seco:360 },
+  maestroConversion: { seco: 360 },
+  movimientos: [],
   adminNombre: ''
 };
 
@@ -137,16 +138,20 @@ function agregadoEtapa(idx){
 // ---------- Conexión al backend (Cloudflare Worker + KV) ----------
 // Reemplaza estos dos valores después de desplegar el Worker (ver worker/README).
 
-function factorEquivalenteSeco(idx){
-  const mc = DATA.maestroConversion;
-  const map = {0:1000, 2:mc.anaerobico, 3:mc.anaerobico, 4:mc.presecado, 5:mc.secador, 6:mc.secador};
-  return map[idx] ?? 1000;
-}
-
 function infoPesoBache(b){
   if(b.etapaIdx===7) return ocupacionLabel(b);
-  const proySeco = b.peso_fresco * FACTOR_CONVERSION;
+  const proySeco = b.peso_fresco * factorConversionActual();
   return `Fresco ${b.peso_fresco.toFixed(0)} kg · Proy. seco ${proySeco.toFixed(0)} kg`;
+}
+
+function registrarMovimiento(accion, detalle, usuario){
+  if(!DATA.movimientos) DATA.movimientos = [];
+  DATA.movimientos.unshift({
+    fecha: new Date().toISOString(),
+    accion, detalle,
+    usuario: (usuario || '').trim() || '—'
+  });
+  if(DATA.movimientos.length > 500) DATA.movimientos.length = 500;
 }
 
 function siguienteEtapaVisible(idx){

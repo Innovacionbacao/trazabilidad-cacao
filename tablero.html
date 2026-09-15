@@ -162,14 +162,25 @@
       <input type="checkbox" id="trace-f-despachados" style="width:auto;">
       <label for="trace-f-despachados" style="font-size:13px; color:var(--ink-dim);">Incluir baches ya despachados</label>
     </div>
-    <button class="secondary" id="btn-export-trazabilidad" style="margin-bottom:20px;">Exportar trazabilidad filtrada (Excel)</button>
+    <button class="secondary" id="btn-export-trazabilidad" style="margin-bottom:6px;">Exportar trazabilidad (Excel)</button>
+    <p class="op-meta" style="margin-bottom:20px;">Marca uno o varios baches con la casilla para exportar solo esos; si no marcas ninguno, se exporta todo lo que muestran los filtros de arriba. Incluye el detalle por etapa (inicio, fin, duración) de cada bache.</p>
     <p class="block-title">Historial completo por bache</p>
     <div class="op-list" id="trace-list"></div>
   </div>
 
   <div class="panel" id="panel-lotes">
-    <p class="block-title">Empacado en bodega (pendiente de lote de venta)</p>
+    <p class="block-title">Pendiente de liberación (empacado, sin liberar aún)</p>
     <div class="lv-history" id="inventario-empacado"></div>
+
+    <div class="section-gap">
+      <p class="block-title">Liberado, sin asignar a lote de venta</p>
+      <div class="lv-history" id="inventario-liberado-sinlote"></div>
+    </div>
+
+    <div class="section-gap">
+      <p class="block-title">Asignado a lote de venta, pendiente de despacho</p>
+      <div class="lv-history" id="inventario-en-lote-pendiente"></div>
+    </div>
 
     <div class="section-gap">
       <p class="block-title">Grado 2 e impurezas (inventario común, sin bache ni lote)</p>
@@ -184,9 +195,9 @@
     </div>
 
     <div class="section-gap">
-      <p class="block-title">Cacao LOCAL (inventario aparte, sin proceso)</p>
+      <p class="block-title">Cacao LOCAL liberado (inventario aparte, sin proceso)</p>
       <div id="cacao-local-resumen"></div>
-      <p class="op-meta" style="margin-top:10px;">El despacho de este inventario se autoriza desde Panel → Lotes de venta.</p>
+      <p class="op-meta" style="margin-top:10px;">El despacho de este inventario se autoriza desde Panel → Lotes de venta. El cacao LOCAL recién ingresado no aparece aquí hasta que el jefe de producción lo libera (es fresco, cuenta como en proceso).</p>
     </div>
   </div>
 

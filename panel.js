@@ -345,10 +345,37 @@ function renderLotesDespacho(){
 }
 
 function renderCacaoLocalPanel(){
+  const enProceso = DATA.cacaoLocal.enProceso || 0;
+  document.getElementById('cacao-local-enproceso-resumen').innerHTML = `
+    <div class="dash-grid">
+      <div class="dash-card"><div class="n">${enProceso.toFixed(1)}</div><div class="label">Cacao LOCAL fresco, pendiente de liberación (kg)</div></div>
+    </div>`;
+  const campoLib = document.getElementById('lib-local-cantidad');
+  if(document.activeElement !== campoLib) campoLib.value = enProceso > 0 ? enProceso : '';
+
   document.getElementById('cacao-local-resumen').innerHTML = `
     <div class="dash-grid">
-      <div class="dash-card"><div class="n">${(DATA.cacaoLocal.total||0).toFixed(1)}</div><div class="label">Cacao LOCAL disponible (kg)</div></div>
+      <div class="dash-card"><div class="n">${(DATA.cacaoLocal.total||0).toFixed(1)}</div><div class="label">Cacao LOCAL disponible, ya liberado (kg)</div></div>
     </div>`;
+}
+
+async function liberarCacaoLocal(){
+  const nombre = getAdminNombre();
+  const msg = document.getElementById('lib-local-msg');
+  if(!nombre){
+    msg.innerHTML = '<div class="msg err">Ingresa el nombre del jefe de producción arriba antes de liberar.</div>';
+    return;
+  }
+  const cant = parseFloat(document.getElementById('lib-local-cantidad').value) || 0;
+  if(cant<=0){ msg.innerHTML = '<div class="msg err">Ingresa una cantidad a liberar.</div>'; return; }
+  if(cant > (DATA.cacaoLocal.enProceso||0) + 0.01){ msg.innerHTML = '<div class="msg err">No hay suficiente cacao LOCAL pendiente de liberación.</div>'; return; }
+  if(!confirm(`¿Confirmas liberar ${cant} kg de cacao LOCAL al inventario final, autorizado por ${nombre}?`)) return;
+  DATA.cacaoLocal.enProceso -= cant;
+  DATA.cacaoLocal.total += cant;
+  registrarMovimiento('Cacao LOCAL liberado', `${cant} kg`, nombre);
+  await save();
+  msg.innerHTML = '<div class="msg ok">Liberado correctamente.</div>';
+  render();
 }
 
 async function despacharCacaoLocal(){
@@ -429,6 +456,28 @@ async function recalcularInventarioSecundario(){
   render();
 }
 
+async function devolverALiberacion(codigo){
+  const nombre = getAdminNombre();
+  if(!nombre){
+    alert('Ingresa el nombre del jefe de producción arriba (Identificación) antes de continuar.');
+    return;
+  }
+  const b = DATA.baches.find(x=>x.codigo===codigo);
+  if(kgAsignadoLV(b) > 0){
+    alert('Este bache ya tiene grado 1 asignado a un lote de venta; no se puede devolver a liberación desde aquí.');
+    return;
+  }
+  if(!confirm(`¿Confirmas devolver el bache ${codigo} a "pendiente de liberación"? Se borra la prueba de corte registrada y deberás repetirla al liberarlo de nuevo.`)) return;
+  b.liberado = false;
+  b.liberadoPor = null;
+  b.liberadoFecha = null;
+  b.pruebaCorte = null;
+  lvSeleccionados.delete(codigo);
+  registrarMovimiento('Bache devuelto a liberación', `Bache ${codigo}`, nombre);
+  await save();
+  render();
+}
+
 function renderLotesPool(){
   const tabsEl = document.getElementById('lv-tabs');
   tabsEl.innerHTML = Object.keys(DENOM).map(k=>
@@ -446,7 +495,10 @@ function renderLotesPool(){
       const disp = disponibleLV(b);
       if(checked) totalSel += disp;
       const parcial = disp < b.peso_final ? ` · ${b.peso_final-disp} kg ya en otro lote` : '';
-      return `<div class="lv-pool-item"><input type="checkbox" ${checked?'checked':''} onchange="toggleSeleccionLV('${b.codigo}')"><span class="mono">${b.codigo}</span><span class="op-meta">${disp} kg de grado 1 disponibles · ${Math.floor(disp/DATA.pesoBulto)} sacos${parcial}</span></div>`;
+      const btnDevolver = kgAsignadoLV(b)===0
+        ? `<button class="secondary" onclick="event.stopPropagation(); devolverALiberacion('${b.codigo}')" style="padding:4px 10px; min-height:auto; font-size:12px;">↩ Devolver a liberación</button>`
+        : '';
+      return `<div class="lv-pool-item"><input type="checkbox" ${checked?'checked':''} onchange="toggleSeleccionLV('${b.codigo}')"><span class="mono">${b.codigo}</span><span class="op-meta">${disp} kg de grado 1 disponibles · ${Math.floor(disp/DATA.pesoBulto)} sacos${parcial}</span>${btnDevolver}</div>`;
     }).join('');
     const excede = totalSel > MAX_KG_LOTE_VENTA;
     const avisoTope = excede
@@ -746,6 +798,7 @@ document.getElementById('btn-guardar-capacidad').addEventListener('click', guard
 document.getElementById('btn-edit-cargar').addEventListener('click', cargarBacheParaEditar);
 document.getElementById('btn-despachar-secundario').addEventListener('click', despacharInventarioSecundario);
 document.getElementById('btn-despachar-local').addEventListener('click', despacharCacaoLocal);
+document.getElementById('btn-liberar-local').addEventListener('click', liberarCacaoLocal);
 document.getElementById('btn-recalcular-secundario').addEventListener('click', recalcularInventarioSecundario);
 document.getElementById('btn-backup').addEventListener('click', descargarBackup);
 document.getElementById('btn-export-baches').addEventListener('click', exportarBachesCSV);

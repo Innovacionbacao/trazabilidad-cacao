@@ -335,3 +335,15 @@ Nota: al revertir con "Retroceder etapa" un bache que ya estaba en Almacenado, a
 7. **Alarma de % de conversión**: al empacar un bache se guarda el % de conversión (seco/fresco), y se muestra resaltado en Trazabilidad, Editar baches y Liberación — verde si está en un rango típico (25%-40%), en color de advertencia si se acerca a los bordes del rango permitido (20%-45%), para tenerlo presente aunque ya haya pasado la validación.
 
 8. **Liberación de producto (Panel → Seguimiento)** ahora muestra la información completa del bache (fecha, peso fresco, básculas, bultos, remanente recibido/resultante, G2, impurezas, % de conversión) además de los campos de la prueba de corte, y agrega un botón "↩ Devolver a Empaque" para corregir un bache liberado por error antes de asignarlo a un lote de venta.
+
+## 19. Correcciones de esta ronda
+
+1. **Inventario (Tablero) ahora muestra todo lo que hay en bodega**, separado en categorías claras: pendiente de liberación, liberado sin asignar a lote, asignado a lote pendiente de despacho, grado 2/impurezas, remanente de grado 1, y cacao LOCAL liberado. Antes se perdía de vista el cacao ya asignado a un lote que aún no se había despachado.
+
+2. **Exportar Trazabilidad**: ahora puedes marcar uno o varios baches con la casilla de cada tarjeta y exportar solo esos (si no marcas ninguno, exporta todo lo que muestran los filtros). El archivo trae el detalle **por etapa** de cada bache: inicio, fin, duración y estado de cada paso — no solo un resumen por bache.
+
+3. **"↩ Devolver a liberación"**: en Panel → Lotes de venta, junto a cada bache liberado disponible para generar un lote, hay un botón para devolverlo a "pendiente de liberación" si algo quedó mal (solo si todavía no tiene nada asignado a un lote de venta).
+
+4. **Remanente de grado 1 ahora se suma automáticamente**: en el empaque ya no se pide "bultos llenados" por separado — se pide el **grado 1 pesado de este bache**, y el sistema suma el remanente pendiente de la misma denominación antes de calcular cuántos bultos completos salen y cuánto sobra. Ya no depende de que alguien haga la suma a mano.
+
+5. **Cacao LOCAL ahora es "fresco" hasta que se libera**: al registrarlo en Captura queda como pendiente de liberación (no aparece en el inventario final). En Panel → Lotes de venta hay una sección para liberarlo (con el total pendiente pre-cargado, editable para liberar solo una parte); solo después de liberado aparece en Tablero → Inventario y puede despacharse.

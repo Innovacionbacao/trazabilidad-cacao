@@ -4,10 +4,17 @@
    ========================================================= */
 
 let traceSeleccionado = null;
+let traceSeleccionados = new Set();
 
 /* ---------- TRAZABILIDAD ---------- */
 function seleccionarTrace(codigo){
   traceSeleccionado = (traceSeleccionado === codigo) ? null : codigo;
+  render();
+}
+
+function toggleSeleccionTrace(codigo){
+  if(traceSeleccionados.has(codigo)) traceSeleccionados.delete(codigo);
+  else traceSeleccionados.add(codigo);
   render();
 }
 
@@ -30,18 +37,33 @@ function bachesTrazabilidadFiltrados(){
 }
 
 function exportarTrazabilidadExcel(){
-  const todos = bachesTrazabilidadFiltrados();
-  const cols = ['Código','Fecha','Denominación','Etapa actual','Peso fresco (kg)','Peso final G1 (kg)','G2 (kg)','Impurezas (kg)','Bultos','% conversión','Liberado','Despachado','Básculas'];
-  const filas = todos.map(b=>{
-    const conv = b.peso_final!=null ? (b.peso_final/b.peso_fresco*100).toFixed(1) : '';
-    return [
-      b.codigo, b.fecha, DENOM[b.denom].label, etapaMostrada(b),
-      b.peso_fresco, b.peso_final ?? '', b.peso_g2 ?? '', b.peso_impurezas ?? '', b.bultos ?? '',
-      conv, b.liberado ? 'Sí' : 'No', setDespachados().has(b.codigo) ? 'Sí' : 'No',
-      (b.basculas||[]).map(x=>`${x.numero} (${x.peso} kg)`).join(' / ')
-    ];
+  const filtrados = bachesTrazabilidadFiltrados();
+  const usarSeleccion = traceSeleccionados.size > 0;
+  const baches = usarSeleccion ? filtrados.filter(b=>traceSeleccionados.has(b.codigo)) : filtrados;
+  if(baches.length===0){
+    alert('No hay baches para exportar (revisa la selección o los filtros).');
+    return;
+  }
+  const cols = ['Código','Denominación','Etapa','Inicio','Fin','Duración (h)','Ocupación','Estado','Límite (h)'];
+  const filas = [];
+  baches.forEach(b=>{
+    const denomLabel = DENOM[b.denom].label;
+    (b.historial||[]).forEach(h=>{
+      filas.push([
+        b.codigo, denomLabel, h.etapaNombre,
+        fmtDateTime(new Date(h.horaInicio)), fmtDateTime(new Date(h.horaFin)),
+        Math.round(h.duracionHoras*10)/10, h.ocupacion || '—', h.estado, h.limiteHoras ?? ''
+      ]);
+    });
+    // Etapa actual (en curso), si el bache sigue activo
+    if(ACTIVE_INDICES.includes(b.etapaIdx)){
+      filas.push([
+        b.codigo, denomLabel, `${etapaMostrada(b)} (actual)`,
+        fmtDateTime(new Date(b.horaInicioEtapa)), 'en curso', '', ocupacionLabel(b), 'en curso', ''
+      ]);
+    }
   });
-  descargarExcel('trazabilidad-baches.xlsx', 'Trazabilidad', cols, filas);
+  descargarExcel('trazabilidad-detalle.xlsx', 'Trazabilidad', cols, filas);
 }
 
 function renderTrazabilidad(){
@@ -103,6 +125,7 @@ function renderTrazabilidad(){
     return `
       <div class="op-card ${traceSeleccionado===b.codigo?'selected':''}" onclick="seleccionarTrace('${b.codigo}')">
         <div class="op-top">
+          <input type="checkbox" ${traceSeleccionados.has(b.codigo)?'checked':''} onclick="event.stopPropagation()" onchange="toggleSeleccionTrace('${b.codigo}')" style="width:auto;">
           <span class="tag" style="background:${denomInfo.color}">${denomInfo.label}</span>
           <span class="op-codigo">${b.codigo}</span>
           <span class="op-meta">${etapaMostrada(b)}${(b.lvAsignaciones||[]).length ? ` · ${b.lvAsignaciones.map(a=>a.lv).join(', ')}` : ''}${b.parcialDe ? ` · parcial de ${b.parcialDe}` : ''}</span>
@@ -550,19 +573,37 @@ function renderCacaoLocalTablero(){
 }
 
 function renderInventarioEmpacado(){
-  const pendientes = DATA.baches.filter(b=>b.etapaIdx===7 && disponibleLV(b) > 0)
+  const porLiberar = DATA.baches.filter(b=>b.etapaIdx===7 && !b.liberado)
     .sort((a,b)=> new Date(b.horaInicioEtapa) - new Date(a.horaInicioEtapa));
-  const el = document.getElementById('inventario-empacado');
-  el.innerHTML = pendientes.length ? pendientes.map(b=>{
+  document.getElementById('inventario-empacado').innerHTML = porLiberar.length ? porLiberar.map(b=>`
+    <div class="lv-history-item">
+      <div><span class="tag" style="background:${DENOM[b.denom].color}">${DENOM[b.denom].label}</span> <span class="mono" style="margin-left:8px;">${b.codigo}</span></div>
+      <div class="op-meta">${b.peso_final} kg secos (grado 1) · ${b.bultos ?? 0} sacos · G2 ${b.peso_g2 ?? 0} kg e impurezas ${b.peso_impurezas ?? 0} kg ya en inventario común</div>
+      <div class="op-meta">Pendiente de liberación (Panel → Seguimiento)</div>
+    </div>`).join('') : '<div class="empty">No hay baches pendientes de liberación.</div>';
+
+  const liberadoSinAsignar = DATA.baches.filter(b=>b.etapaIdx===7 && b.liberado && disponibleLV(b) > 0)
+    .sort((a,b)=> new Date(b.horaInicioEtapa) - new Date(a.horaInicioEtapa));
+  document.getElementById('inventario-liberado-sinlote').innerHTML = liberadoSinAsignar.length ? liberadoSinAsignar.map(b=>{
     const disp = disponibleLV(b);
     const parcial = disp < b.peso_final ? ` (${b.peso_final - disp} kg ya asignados a lote)` : '';
     return `
     <div class="lv-history-item">
       <div><span class="tag" style="background:${DENOM[b.denom].color}">${DENOM[b.denom].label}</span> <span class="mono" style="margin-left:8px;">${b.codigo}</span></div>
-      <div class="op-meta">Disponible: ${disp} kg secos (grado 1)${parcial} · ${Math.floor(disp/DATA.pesoBulto)} sacos · G2 ${b.peso_g2 ?? 0} kg e impurezas ${b.peso_impurezas ?? 0} kg ya en inventario común</div>
-      <div class="op-meta">${b.liberado ? `Liberado por ${b.liberadoPor}` : 'Pendiente de liberación (Administrador)'}</div>
+      <div class="op-meta">Disponible sin asignar: ${disp} kg secos${parcial} · ${Math.floor(disp/DATA.pesoBulto)} sacos · liberado por ${b.liberadoPor||'—'}</div>
     </div>`;
-  }).join('') : '<div class="empty">No hay baches empacados pendientes de lote de venta.</div>';
+  }).join('') : '<div class="empty">No hay baches liberados pendientes de asignar a un lote de venta.</div>';
+
+  const lotesPendientes = [...DATA.lotes].reverse().filter(l=>!l.despacho);
+  document.getElementById('inventario-en-lote-pendiente').innerHTML = lotesPendientes.length ? lotesPendientes.map(l=>{
+    const bultosDetalle = (l.detalleBultos||[]).map(d=>`${d.codigo}: ${d.bultos} sacos (${d.kg} kg)`).join(' · ');
+    return `
+    <div class="lv-history-item">
+      <div><span class="tag" style="background:${DENOM[l.denom].color}">${DENOM[l.denom].label}</span> <span class="mono" style="margin-left:8px;">${l.codigo}</span></div>
+      <div class="op-meta">${(l.total_kg/1000).toFixed(2)} ton en bodega, pendiente de despacho (Panel → Lotes de venta)</div>
+      <div class="op-meta">${bultosDetalle}</div>
+    </div>`;
+  }).join('') : '<div class="empty">No hay lotes de venta pendientes de despacho.</div>';
 }
 
 /* ---------- DESPACHOS (lotes de venta ya despachados) ---------- */

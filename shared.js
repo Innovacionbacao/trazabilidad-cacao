@@ -73,9 +73,10 @@ let DATA = {
   // denominación, para consolidarlo en un bulto completo.
   pesoBulto: 69,
   remanenteG1: { ccn51: 0, aromatico: 0, upia: 0 },
-  // Cacao LOCAL: entra directo al inventario final, sin pasar por ningún
-  // proceso (recepción, fermentación, secado, etc.). Es un inventario aparte.
-  cacaoLocal: { total: 0, movimientos: [] },
+  // Cacao LOCAL: entra fresco (como cualquier fruto), así que cuenta como "en
+  // proceso" hasta que el jefe de producción lo libera; solo entonces pasa al
+  // inventario final. No pasa por ninguna etapa de la planta.
+  cacaoLocal: { total: 0, enProceso: 0, movimientos: [] },
   movimientos: [],
   adminNombre: ''
 };

@@ -214,19 +214,11 @@ async function registrarEmpaque(codigo){
   const g2Input = document.getElementById('mov-g2-'+codigo);
   const impInput = document.getElementById('mov-imp-'+codigo);
   const horaInput = document.getElementById('mov-hora-'+codigo);
-  const gmInput = document.getElementById('mov-gm-'+codigo);
-  const gmvInput = document.getElementById('mov-gmv-'+codigo);
-  const gvInput = document.getElementById('mov-gv-'+codigo);
-  const gmohoInput = document.getElementById('mov-gmoho-'+codigo);
 
   const bultos = parseInt(bultosInput.value) || 0;
   const remanenteNuevo = parseFloat(remInput.value) || 0;
   const g2 = parseFloat(g2Input.value) || 0;
   const imp = parseFloat(impInput.value) || 0;
-  const gm = parseInt(gmInput.value) || 0;
-  const gmv = parseInt(gmvInput.value) || 0;
-  const gv = parseInt(gvInput.value) || 0;
-  const gmoho = parseInt(gmohoInput.value) || 0;
   const horaReal = horaInput.value ? new Date(horaInput.value) : new Date();
   const msgEl = document.getElementById('mov-msg-'+codigo);
   const operario = getOperario();
@@ -241,14 +233,6 @@ async function registrarEmpaque(codigo){
     msgEl.innerHTML = '<div class="msg err">Registra al menos bultos, remanente o grado 2.</div>';
     return;
   }
-  if((gm+gmv+gv+gmoho) === 0){
-    msgEl.innerHTML = '<div class="msg err">Registra el resultado de la prueba de corte (conteo sobre 50 granos).</div>';
-    return;
-  }
-  if((gm+gmv+gv+gmoho) > 50){
-    msgEl.innerHTML = '<div class="msg err">La suma de granos contados no puede ser mayor a 50.</div>';
-    return;
-  }
 
   const remanentePrevio = DATA.remanenteG1[b.denom] || 0;
   const pesoSecoTotalAprox = bultosKg + remanenteNuevo + g2;
@@ -260,11 +244,7 @@ async function registrarEmpaque(codigo){
     return;
   }
 
-  const pctMoho = (gmoho/50*100);
-  const pctMarrones = ((gm+gmv)/50*100);
-  const resultadoCorte = (pctMoho > 2 || pctMarrones < 80) ? 'Rechazado' : 'Aprobado';
-
-  if(!confirm(`¿Confirmas el empaque del bache ${codigo}? ${bultos} bultos (${bultosKg} kg) · remanente nuevo ${remanenteNuevo} kg · G2 ${g2} kg · impurezas ${imp} kg. Prueba de corte: ${resultadoCorte} (moho ${pctMoho.toFixed(1)}%, marrones+marrones violeta ${pctMarrones.toFixed(1)}%). Esto lo pasa a Almacenado.`)) return;
+  if(!confirm(`¿Confirmas el empaque del bache ${codigo}? ${bultos} bultos (${bultosKg} kg) · remanente nuevo ${remanenteNuevo} kg · G2 ${g2} kg · impurezas ${imp} kg. Esto lo pasa a Almacenado.`)) return;
 
   const inicio = new Date(b.horaInicioEtapa);
   const duracionHoras = (horaReal - inicio) / 3600000;
@@ -293,15 +273,10 @@ async function registrarEmpaque(codigo){
   DATA.inventarioSecundario.grado2 += g2;
   DATA.inventarioSecundario.impurezas += imp;
   b.contadoEnPoolG2 = true;
-  b.pruebaCorte = {
-    muestra: 50, granosMarrones: gm, granosMarronesVioleta: gmv, granosVioletas: gv, granosMoho: gmoho,
-    pctMoho: Math.round(pctMoho*10)/10, pctMarrones: Math.round(pctMarrones*10)/10,
-    resultado: resultadoCorte, fecha: horaReal.toISOString(), operario
-  };
   b.etapaIdx = 7;
   b.liberado = false;
   b.horaInicioEtapa = horaReal.toISOString();
-  registrarMovimiento('Empaque registrado', `Bache ${b.codigo}: ${bultos} bultos (${bultosKg} kg) a lote de venta · remanente ${remanenteNuevo} kg · G2 ${g2} kg e impurezas ${imp} kg a inventario común · Prueba de corte: ${resultadoCorte}`, operario);
+  registrarMovimiento('Empaque registrado', `Bache ${b.codigo}: ${bultos} bultos (${bultosKg} kg) a lote de venta · remanente ${remanenteNuevo} kg · G2 ${g2} kg e impurezas ${imp} kg a inventario común`, operario);
   opSeleccionado = null;
   await save();
   render();
@@ -407,13 +382,6 @@ function renderOpCard(b){
             <div class="field"><label>Ensacado grado 2 (kg)</label><input type="number" id="mov-g2-${b.codigo}" min="0" step="0.1"></div>
             <div class="field"><label>Impurezas / grado 3 (kg)</label><input type="number" id="mov-imp-${b.codigo}" min="0" step="0.1"></div>
             <div class="field"><label>Fecha y hora real</label><input type="datetime-local" id="mov-hora-${b.codigo}" value="${toLocalInputValue(new Date())}"></div>
-          </div>
-          <div class="op-preview" style="margin-top:4px;">Prueba de corte (muestra de 50 granos)</div>
-          <div class="row">
-            <div class="field"><label>Granos marrones</label><input type="number" id="mov-gm-${b.codigo}" min="0" max="50" step="1"></div>
-            <div class="field"><label>Granos marrones violeta</label><input type="number" id="mov-gmv-${b.codigo}" min="0" max="50" step="1"></div>
-            <div class="field"><label>Granos violetas</label><input type="number" id="mov-gv-${b.codigo}" min="0" max="50" step="1"></div>
-            <div class="field"><label>Granos con moho o pizarra</label><input type="number" id="mov-gmoho-${b.codigo}" min="0" max="50" step="1"></div>
           </div>
           <div id="mov-msg-${b.codigo}"></div>
           <button class="big" onclick="registrarEmpaque('${b.codigo}')">Registrar empaque</button>

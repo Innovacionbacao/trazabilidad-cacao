@@ -313,3 +313,9 @@ registrado.
 9. **Contador de volteos en vez de aireación día 1/día 2**: como el presecado a veces se satura y el cacao se queda más días en F. aeróbica de los previstos, ya no hay solo dos casillas fijas — hay un botón "↩ Registrar volteo" que se puede usar tantas veces como haga falta mientras el bache esté en esa etapa, con fecha y operario guardados en cada volteo.
 
 Nota: al revertir con "Retroceder etapa" un bache que ya estaba en Almacenado, ahora también se deshacen correctamente el remanente de grado 1, el inventario común de grado 2/impurezas, y la prueba de corte asociados a ese empaque.
+
+## 17. Correcciones sobre la prueba de corte y el error de volteos
+
+- **Prueba de corte movida**: ya no se pide al empacar (Captura → Operación). Ahora se hace en **Panel → Seguimiento**, al momento de liberar el bache para lote de venta — el jefe de producción cuenta los 50 granos justo ahí y el sistema calcula Aprobado/Rechazado. Si da Rechazado, pide una confirmación extra antes de liberar de todas formas.
+- **Error "Cannot read properties of undefined (reading 'length')"**: quedó resuelto en la ronda anterior (baches antiguos sin el campo `volteos`); si lo seguías viendo, era porque probabas con un zip anterior a ese arreglo — este ya lo trae.
+- **Recordatorio de dónde vive el remanente de grado 1**: `DATA.remanenteG1` (uno por denominación), visible de solo lectura en Tablero → Inventario. Se actualiza automáticamente al empacar, no requiere ninguna acción manual de despacho.

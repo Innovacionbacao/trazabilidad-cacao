@@ -126,10 +126,39 @@ async function liberarBache(codigo){
     return;
   }
   const b = DATA.baches.find(x=>x.codigo===codigo);
+  const gm = parseInt(document.getElementById('lib-gm-'+codigo).value) || 0;
+  const gmv = parseInt(document.getElementById('lib-gmv-'+codigo).value) || 0;
+  const gv = parseInt(document.getElementById('lib-gv-'+codigo).value) || 0;
+  const gmoho = parseInt(document.getElementById('lib-gmoho-'+codigo).value) || 0;
+  const libMsg = document.getElementById('lib-msg-'+codigo);
+
+  if((gm+gmv+gv+gmoho) === 0){
+    libMsg.innerHTML = '<div class="msg err">Registra el resultado de la prueba de corte (conteo sobre 50 granos) antes de liberar.</div>';
+    return;
+  }
+  if((gm+gmv+gv+gmoho) > 50){
+    libMsg.innerHTML = '<div class="msg err">La suma de granos contados no puede ser mayor a 50.</div>';
+    return;
+  }
+  const pctMoho = (gmoho/50*100);
+  const pctMarrones = ((gm+gmv)/50*100);
+  const resultadoCorte = (pctMoho > 2 || pctMarrones < 80) ? 'Rechazado' : 'Aprobado';
+
+  if(resultadoCorte === 'Rechazado'){
+    if(!confirm(`La prueba de corte de ${codigo} dio RECHAZADO (moho ${pctMoho.toFixed(1)}%, marrones+marrones violeta ${pctMarrones.toFixed(1)}%). ¿Confirmas liberar de todas formas?`)) return;
+  } else {
+    if(!confirm(`Prueba de corte: Aprobado (moho ${pctMoho.toFixed(1)}%, marrones+marrones violeta ${pctMarrones.toFixed(1)}%). ¿Confirmas liberar el bache ${codigo}?`)) return;
+  }
+
+  b.pruebaCorte = {
+    muestra: 50, granosMarrones: gm, granosMarronesVioleta: gmv, granosVioletas: gv, granosMoho: gmoho,
+    pctMoho: Math.round(pctMoho*10)/10, pctMarrones: Math.round(pctMarrones*10)/10,
+    resultado: resultadoCorte, fecha: new Date().toISOString(), operario: nombre
+  };
   b.liberado = true;
   b.liberadoPor = nombre;
   b.liberadoFecha = new Date().toISOString();
-  registrarMovimiento('Producto liberado', `Bache ${codigo}: ${b.peso_final} kg secos`, nombre);
+  registrarMovimiento('Producto liberado', `Bache ${codigo}: ${b.peso_final} kg secos · Prueba de corte: ${resultadoCorte}`, nombre);
   msg.innerHTML = '';
   await save();
   render();
@@ -139,10 +168,18 @@ function renderLiberacion(){
   const pendientes = DATA.baches.filter(b=>b.etapaIdx===7 && !b.liberado);
   const el = document.getElementById('admin-liberacion');
   el.innerHTML = pendientes.length ? pendientes.map(b=>`
-    <div class="lv-history-item">
+    <div class="lv-history-item" style="flex-direction:column; align-items:stretch;">
       <div><span class="tag" style="background:${DENOM[b.denom].color}">${DENOM[b.denom].label}</span> <span class="mono" style="margin-left:8px;">${b.codigo}</span></div>
       <div class="op-meta">${b.peso_final} kg secos de grado 1 (G2 ${b.peso_g2 ?? 0} kg e impurezas ${b.peso_impurezas ?? 0} kg ya en inventario común)</div>
-      <button onclick="liberarBache('${b.codigo}')">Liberar para despacho</button>
+      <div class="op-preview" style="margin-top:6px;">Prueba de corte (muestra de 50 granos)</div>
+      <div class="row" style="display:flex; gap:10px; flex-wrap:wrap;">
+        <div class="field" style="flex:1; min-width:120px; margin-bottom:0;"><label>Granos marrones</label><input type="number" id="lib-gm-${b.codigo}" min="0" max="50" step="1"></div>
+        <div class="field" style="flex:1; min-width:120px; margin-bottom:0;"><label>Marrones violeta</label><input type="number" id="lib-gmv-${b.codigo}" min="0" max="50" step="1"></div>
+        <div class="field" style="flex:1; min-width:120px; margin-bottom:0;"><label>Violetas</label><input type="number" id="lib-gv-${b.codigo}" min="0" max="50" step="1"></div>
+        <div class="field" style="flex:1; min-width:120px; margin-bottom:0;"><label>Moho o pizarra</label><input type="number" id="lib-gmoho-${b.codigo}" min="0" max="50" step="1"></div>
+      </div>
+      <div id="lib-msg-${b.codigo}"></div>
+      <button onclick="liberarBache('${b.codigo}')" style="margin-top:8px;">Liberar para despacho</button>
     </div>`).join('') : '<div class="empty">No hay baches pendientes de liberación.</div>';
 }
 

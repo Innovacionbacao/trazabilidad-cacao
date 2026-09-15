@@ -52,6 +52,40 @@ async function guardarMaestroConversion(){
   render();
 }
 
+function renderCapacidadForm(){
+  const p = DATA.capacidadMaestro.porEtapa;
+  document.getElementById('cap-bines-total').value = p['Recepción en bines'].total;
+  document.getElementById('cap-bines-kg').value = p['Recepción en bines'].capKg;
+  document.getElementById('cap-anaerobica-total').value = p['F. anaeróbica'].total;
+  document.getElementById('cap-anaerobica-kg').value = p['F. anaeróbica'].capKg;
+  document.getElementById('cap-aerobica-total').value = p['F. aeróbica'].total;
+  document.getElementById('cap-aerobica-kg').value = p['F. aeróbica'].capKg;
+  document.getElementById('cap-presecado-total').value = p['Presecado'].total;
+  document.getElementById('cap-presecado-kg').value = p['Presecado'].capKg;
+  document.getElementById('cap-secado-total').value = p['Secado'].total;
+  document.getElementById('cap-secado-kg').value = p['Secado'].capKg;
+  document.getElementById('cap-almacen-ton').value = DATA.capacidadMaestro.almacenTotalTon;
+}
+
+async function guardarCapacidadMaestro(){
+  const nombre = getAdminNombre();
+  const num = (id) => parseFloat(document.getElementById(id).value) || 0;
+  DATA.capacidadMaestro = {
+    porEtapa: {
+      'Recepción en bines': {unidad:'Bin', total: num('cap-bines-total'), capKg: num('cap-bines-kg')},
+      'F. anaeróbica':      {unidad:'Cajón anaeróbico', total: num('cap-anaerobica-total'), capKg: num('cap-anaerobica-kg')},
+      'F. aeróbica':         {unidad:'Cajón aeróbico', total: num('cap-aerobica-total'), capKg: num('cap-aerobica-kg')},
+      'Presecado':           {unidad:'Presecadora', total: num('cap-presecado-total'), capKg: num('cap-presecado-kg')},
+      'Secado':              {unidad:'Secadora', total: num('cap-secado-total'), capKg: num('cap-secado-kg')}
+    },
+    almacenTotalTon: num('cap-almacen-ton'),
+    almacenM2PorTon: DATA.capacidadMaestro.almacenM2PorTon
+  };
+  registrarMovimiento('Maestro de capacidad actualizado', JSON.stringify(DATA.capacidadMaestro), nombre);
+  await save();
+  render();
+}
+
 /* ---------- SEGUIMIENTO ---------- */
 function renderFueraDeNorma(){
   const now = new Date();
@@ -329,6 +363,105 @@ function renderMovimientos(){
     </div>`).join('') : '<div class="empty">No hay movimientos registrados todavía.</div>';
 }
 
+/* ---------- EDITAR BACHES ---------- */
+function renderListaCodigosEditar(){
+  const dl = document.getElementById('edit-lista-codigos');
+  dl.innerHTML = DATA.baches.map(b=>`<option value="${b.codigo}">`).join('');
+}
+
+function cargarBacheParaEditar(){
+  const codigo = document.getElementById('edit-buscar').value.trim();
+  const b = DATA.baches.find(x=>x.codigo===codigo);
+  const wrap = document.getElementById('edit-form-wrap');
+  if(!b){
+    wrap.innerHTML = codigo ? '<div class="empty">No existe ningún bache con ese código.</div>' : '';
+    return;
+  }
+  const opcionesEtapa = STAGES.map((nombre,i)=>`<option value="${i}" ${i===b.etapaIdx?'selected':''}>${i} — ${nombre}</option>`).join('');
+  const opcionesDenom = Object.keys(DENOM).map(k=>`<option value="${k}" ${k===b.denom?'selected':''}>${DENOM[k].label}</option>`).join('');
+  wrap.innerHTML = `
+    <div class="mapa-form">
+      <div class="field"><label>Fecha</label><input type="date" id="edit-fecha" value="${b.fecha}"></div>
+      <div class="field"><label>Denominación</label><select id="edit-denom">${opcionesDenom}</select></div>
+      <div class="field"><label>Peso fresco (kg)</label><input type="number" id="edit-peso-fresco" value="${b.peso_fresco}"></div>
+      <div class="field"><label>Etapa actual</label><select id="edit-etapa">${opcionesEtapa}</select></div>
+      <div class="field"><label>Peso G1 (kg)</label><input type="number" id="edit-g1" value="${b.peso_g1 ?? ''}"></div>
+      <div class="field"><label>Peso G2 (kg)</label><input type="number" id="edit-g2" value="${b.peso_g2 ?? ''}"></div>
+      <div class="field"><label>Impurezas (kg)</label><input type="number" id="edit-imp" value="${b.peso_impurezas ?? ''}"></div>
+      <div class="field"><label>Humedad de salida (%)</label><input type="number" id="edit-humedad" value="${b.humedadSalida ?? ''}"></div>
+    </div>
+    <div style="display:flex; align-items:center; gap:8px; margin-bottom:14px;">
+      <input type="checkbox" id="edit-liberado" ${b.liberado ? 'checked' : ''} style="width:auto;">
+      <label for="edit-liberado" style="font-size:13px; color:var(--ink-dim);">Liberado para lote de venta</label>
+    </div>
+    <div class="op-meta" style="margin-bottom:14px;">
+      Básculas: ${(b.basculas||[]).map(x=>`${x.numero} (${x.peso} kg)`).join(', ') || '—'}
+      ${(b.lvAsignaciones||[]).length ? ` · Lotes: ${b.lvAsignaciones.map(a=>`${a.lv} (${a.kg} kg)`).join(', ')}` : ''}
+    </div>
+    <div id="edit-msg"></div>
+    <button id="btn-edit-guardar">Guardar cambios</button>
+  `;
+  document.getElementById('btn-edit-guardar').addEventListener('click', ()=>guardarEdicionBache(codigo));
+}
+
+async function guardarEdicionBache(codigo){
+  const nombre = getAdminNombre();
+  const msg = document.getElementById('edit-msg');
+  if(!nombre){
+    msg.innerHTML = '<div class="msg err">Ingresa el nombre del jefe de producción arriba antes de guardar.</div>';
+    return;
+  }
+  const b = DATA.baches.find(x=>x.codigo===codigo);
+  if(!b) return;
+
+  const cambios = [];
+  const registrar = (campo, valorAnterior, valorNuevo) => {
+    if(String(valorAnterior) !== String(valorNuevo)) cambios.push(`${campo}: ${valorAnterior} → ${valorNuevo}`);
+  };
+
+  const nuevaFecha = document.getElementById('edit-fecha').value;
+  const nuevoDenom = document.getElementById('edit-denom').value;
+  const nuevoPesoFresco = parseFloat(document.getElementById('edit-peso-fresco').value) || 0;
+  const nuevaEtapa = parseInt(document.getElementById('edit-etapa').value, 10);
+  const nuevoG1 = document.getElementById('edit-g1').value === '' ? null : parseFloat(document.getElementById('edit-g1').value);
+  const nuevoG2 = document.getElementById('edit-g2').value === '' ? null : parseFloat(document.getElementById('edit-g2').value);
+  const nuevoImp = document.getElementById('edit-imp').value === '' ? null : parseFloat(document.getElementById('edit-imp').value);
+  const nuevaHumedad = document.getElementById('edit-humedad').value === '' ? null : parseFloat(document.getElementById('edit-humedad').value);
+  const nuevoLiberado = document.getElementById('edit-liberado').checked;
+
+  registrar('fecha', b.fecha, nuevaFecha);
+  registrar('denom', b.denom, nuevoDenom);
+  registrar('peso_fresco', b.peso_fresco, nuevoPesoFresco);
+  registrar('etapaIdx', b.etapaIdx, nuevaEtapa);
+  registrar('peso_g1', b.peso_g1, nuevoG1);
+  registrar('peso_g2', b.peso_g2, nuevoG2);
+  registrar('peso_impurezas', b.peso_impurezas, nuevoImp);
+  registrar('humedadSalida', b.humedadSalida, nuevaHumedad);
+  registrar('liberado', b.liberado, nuevoLiberado);
+
+  if(cambios.length === 0){
+    msg.innerHTML = '<div class="msg ok">No hay cambios que guardar.</div>';
+    return;
+  }
+  if(!confirm(`¿Confirmas guardar estos cambios en ${codigo}?\n\n${cambios.join('\n')}`)) return;
+
+  b.fecha = nuevaFecha;
+  b.denom = nuevoDenom;
+  b.peso_fresco = nuevoPesoFresco;
+  b.etapaIdx = nuevaEtapa;
+  b.peso_g1 = nuevoG1;
+  b.peso_g2 = nuevoG2;
+  b.peso_impurezas = nuevoImp;
+  b.peso_final = (nuevoG1!=null && nuevoG2!=null) ? (nuevoG1+nuevoG2) : b.peso_final;
+  b.humedadSalida = nuevaHumedad;
+  b.liberado = nuevoLiberado;
+
+  registrarMovimiento('Edición manual', `Bache ${codigo}: ${cambios.join('; ')}`, nombre);
+  await save();
+  msg.innerHTML = '<div class="msg ok">Cambios guardados.</div>';
+  render();
+}
+
 /* ---------- SUB-PESTAÑAS DE ADMINISTRADOR ---------- */
 function inicializarAdminTabs(){
   document.querySelectorAll('.admin-tab').forEach(btn=>{
@@ -346,15 +479,20 @@ function render(){
   actualizarEncabezado();
   renderMapaMaestroForm();
   renderMaestroConversionForm();
+  renderCapacidadForm();
   renderFueraDeNorma();
   renderLiberacion();
   renderLotesPool();
   renderMovimientos();
+  renderListaCodigosEditar();
 }
 
 inicializarAdminTabs();
+inicializarGateSimple('phc-panel-2026', 'acceso-valido-panel');
 document.getElementById('btn-guardar-mapa').addEventListener('click', guardarMapaMaestro);
 document.getElementById('btn-guardar-conversion').addEventListener('click', guardarMaestroConversion);
+document.getElementById('btn-guardar-capacidad').addEventListener('click', guardarCapacidadMaestro);
+document.getElementById('btn-edit-cargar').addEventListener('click', cargarBacheParaEditar);
 document.getElementById('btn-backup').addEventListener('click', descargarBackup);
 document.getElementById('btn-export-baches').addEventListener('click', exportarBachesCSV);
 document.getElementById('btn-export-lotes').addEventListener('click', exportarLotesCSV);

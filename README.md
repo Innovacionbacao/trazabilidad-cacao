@@ -155,3 +155,84 @@ página se esté sirviendo por `https://` (GitHub Pages ya lo hace) y que
 Si más adelante quieres lo mismo para `panel.html` o `tablero.html`, se
 repite el mismo patrón (su propio manifest e íconos, o comparten los mismos
 íconos con otro `start_url`).
+
+## 9. Botón "Instalar app"
+
+Además de que Chrome ofrezca instalar la página solo, agregué un botón
+visible **"📲 Instalar app"** junto al campo de Operario en Captura. Aparece
+automáticamente cuando el navegador detecta que la página cumple los
+requisitos para instalarse (tiene `manifest.json`, `sw.js`, íconos, y se
+sirve por `https://`), y al tocarlo dispara el mismo instalador nativo de
+Android — un solo toque, sin pasar por el menú ⋮.
+
+Notas:
+- Solo funciona en navegadores basados en Chromium (Chrome, Edge, Brave,
+  Samsung Internet). En iPhone/iPad no existe este botón — ahí se instala
+  manualmente desde Compartir → "Agregar a inicio".
+- Si la app ya está instalada, o el usuario ya la descartó antes, el botón no
+  aparece — es el navegador quien decide cuándo mostrar el evento, no algo
+  que se pueda forzar desde el código.
+- Esto sigue sin ser un archivo `.apk` descargable. Si en algún momento
+  necesitas eso (por ejemplo para repartirlo por WhatsApp como si fuera un
+  instalador), la vía más simple sin programar nada extra es
+  [pwabuilder.com](https://www.pwabuilder.com): pegas la URL de Captura y te
+  genera un `.apk` firmado a partir del mismo `manifest.json` que ya está
+  aquí.
+
+## 10. Ventana inicial de acceso (operario + clave)
+
+Captura ahora pide, antes de mostrar cualquier cosa, quién captura y una
+clave de acceso — igual que las tres páginas de mantenimiento. Es una clave
+simple, pensada para que nadie entre por accidente, **no para guardar
+secretos** (viaja visible en `captura.js`, cualquiera con algo de
+conocimiento técnico puede leerla).
+
+Está en `captura.js`, cerca del final:
+
+```js
+const CLAVE_ACCESO_PANTALLA = '202699';
+```
+
+Cámbiala por la que quieras usar en planta, y avísale al equipo — si cambias
+esta clave, quien ya haya entrado antes en su celular no necesita volver a
+escribirla (queda recordada en ese dispositivo), pero un dispositivo nuevo sí
+la va a pedir.
+
+El nombre del operario y la validez de la clave quedan guardados en el
+navegador de ese dispositivo (`localStorage`). Para cambiar de operario sin
+cerrar la app, se usa el enlace "cambiar" junto al nombre en la barra
+superior.
+
+## 11. Cambios de esta ronda
+
+- **Unidades**: la entrada de datos (peso fresco, G1/G2/impurezas, básculas)
+  sigue en kilogramos. Todo lo demás (capacidad, dashboard, proyección,
+  inventario) se muestra en toneladas con 2 decimales.
+- **Confirmación**: mover un bache de etapa o registrar su empaque ahora pide
+  confirmar antes de aplicar el cambio.
+- **Retroceder etapa**: cada bache activo tiene un botón "↩ Retroceder" para
+  devolverlo a la etapa anterior (deshace el último paso de su historial; si
+  ya estaba en Almacenado, también deshace el empaque, siempre que no esté
+  liberado ni asignado a un lote de venta).
+- **Maestro de capacidad**: en Panel → Configuración se edita cuántos bines,
+  cajones, presecadoras, secadoras hay y cuánto soporta cada uno, más la
+  capacidad total de bodega — ya no son valores fijos en el código.
+- **Colores en Operación**: los baches dentro de tiempo se ven en verde, los
+  excedidos en rojo (antes el "dentro de tiempo" no tenía color).
+- **Barra deslizante**: al mover un bache parcialmente, además del campo
+  numérico hay un control deslizante para elegir la cantidad.
+- **Filtros de Dashboard por periodo**: reemplacé año/mes por: última semana,
+  última quincena, mes calendario actual, últimos 3 meses, último semestre,
+  todo el historial, o un rango personalizado (desde/hasta). Los gráficos
+  muestran barras diarias si el rango es corto, o mensuales si es largo.
+- **Editar cualquier bache**: en Panel → Editar baches se busca por código y
+  se puede corregir cualquier campo (fecha, denominación, peso, etapa, grados,
+  humedad, liberado). Cada cambio pide confirmación y queda en Movimientos.
+- **Claves separadas por página**: Tablero y Panel ahora piden su propia
+  clave (distinta a la de Captura), para que un operario no pueda entrar ahí
+  aunque conozca la clave de Captura. Búscalas en `tablero.js` y `panel.js`:
+  ```js
+  inicializarGateSimple('phc-tablero-2026', 'acceso-valido-tablero');
+  inicializarGateSimple('phc-panel-2026', 'acceso-valido-panel');
+  ```
+  Cámbialas por las tuyas antes de repartir el acceso a cada rol.

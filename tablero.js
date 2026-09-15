@@ -97,13 +97,6 @@ function renderTrazabilidad(){
 /* ---------- FLUJO Y CAPACIDAD ---------- */
 
 /* ---------- DASHBOARD ---------- */
-function poblarFiltroAnio(){
-  const sel = document.getElementById('dash-anio');
-  const years = [...new Set(DATA.baches.map(b=>b.fecha.slice(0,4)))].sort().reverse();
-  const actual = sel.value;
-  sel.innerHTML = '<option value="todos">Todos (últimos 14 días)</option>' + years.map(y=>`<option value="${y}">${y}</option>`).join('');
-  sel.value = years.includes(actual) ? actual : 'todos';
-}
 
 function dibujarBarras(elId, datos, colorFn, vacioMsg){
   const max = Math.max(...datos.map(d=>d.kg), 1);
@@ -113,7 +106,7 @@ function dibujarBarras(elId, datos, colorFn, vacioMsg){
     const h = (d.kg/max)*chartH;
     const x = startX + i*(boxW+gap);
     const y = chartH - h + topPad;
-    const valorTxt = d.kg >= 1000 ? `${(d.kg/1000).toFixed(1)}t` : `${Math.round(d.kg)}`;
+    const valorTxt = (d.kg/1000).toFixed(2);
     bars += `<rect x="${x}" y="${y}" width="${boxW}" height="${Math.max(h,1)}" rx="2" style="fill:${colorFn(d)};"/>
       ${d.kg>0 ? `<text x="${x+boxW/2}" y="${y-5}" text-anchor="middle" style="font-size:8px; fill:var(--ink); font-family:'IBM Plex Mono';">${valorTxt}</text>` : ''}
       <text x="${x+boxW/2}" y="${chartH+topPad+16}" text-anchor="middle" style="font-size:9px; fill:var(--ink-dim); font-family:'Space Grotesk';">${d.label}</text>`;
@@ -124,84 +117,63 @@ function dibujarBarras(elId, datos, colorFn, vacioMsg){
     : `<svg viewBox="0 0 ${totalWidth} ${chartH+topPad+botPad}" style="width:100%; min-width:${totalWidth}px; display:block;">${bars}</svg>`;
 }
 
-function renderProcesadoChart(){
-  const anio = document.getElementById('dash-anio').value;
-  const mes = document.getElementById('dash-mes').value;
-  const denomF = document.getElementById('dash-denom').value;
-  const baches = DATA.baches.filter(b=> denomF==='todas' || b.denom===denomF);
+function construirSerieTemporal(baches, rango, obtenerFecha, obtenerValor){
+  const desde = new Date(rango.desde+'T00:00:00');
+  const hasta = new Date(rango.hasta+'T00:00:00');
+  const diffDias = Math.round((hasta-desde)/86400000) + 1;
 
-  let datos;
-  if(anio==='todos'){
-    const hoy = new Date();
-    const porDia = {};
-    baches.forEach(b=>{ porDia[b.fecha] = (porDia[b.fecha]||0) + b.peso_fresco; });
-    datos = [];
-    for(let d=13; d>=0; d--){
-      const dt = new Date(hoy); dt.setDate(dt.getDate()-d);
-      const key = `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
-      datos.push({label:`${dt.getDate()}/${dt.getMonth()+1}`, kg: porDia[key]||0});
+  const porFecha = {};
+  baches.forEach(b=>{
+    const f = obtenerFecha(b);
+    if(!f) return;
+    porFecha[f] = (porFecha[f]||0) + obtenerValor(b);
+  });
+
+  if(diffDias <= 62){
+    const datos = [];
+    for(let i=0; i<diffDias; i++){
+      const dt = new Date(desde); dt.setDate(dt.getDate()+i);
+      datos.push({label:`${dt.getDate()}/${dt.getMonth()+1}`, kg: porFecha[fechaISOLocal(dt)]||0});
     }
-  } else if(mes==='todos'){
-    const porMes = Array(12).fill(0);
-    baches.forEach(b=>{
-      const [y,m] = b.fecha.split('-');
-      if(y===anio) porMes[parseInt(m,10)-1] += b.peso_fresco;
-    });
-    datos = porMes.map((kg,i)=>({label:MESES_LABEL[i], kg}));
-  } else {
-    const diasEnMes = new Date(parseInt(anio,10), parseInt(mes,10), 0).getDate();
-    const porDia = {};
-    baches.forEach(b=>{ porDia[b.fecha] = (porDia[b.fecha]||0) + b.peso_fresco; });
-    datos = [];
-    for(let d=1; d<=diasEnMes; d++){
-      const key = `${anio}-${mes}-${String(d).padStart(2,'0')}`;
-      datos.push({label:String(d), kg: porDia[key]||0});
-    }
+    return datos;
   }
+
+  // Rango largo: agrupar por mes calendario dentro del rango
+  const porMes = {};
+  Object.keys(porFecha).forEach(f=>{
+    const ym = f.slice(0,7);
+    porMes[ym] = (porMes[ym]||0) + porFecha[f];
+  });
+  const datos = [];
+  let cursor = new Date(desde.getFullYear(), desde.getMonth(), 1);
+  const fin = new Date(hasta.getFullYear(), hasta.getMonth(), 1);
+  while(cursor <= fin){
+    const ym = `${cursor.getFullYear()}-${String(cursor.getMonth()+1).padStart(2,'0')}`;
+    datos.push({label:`${MESES_LABEL[cursor.getMonth()]} ${String(cursor.getFullYear()).slice(2)}`, kg: porMes[ym]||0});
+    cursor.setMonth(cursor.getMonth()+1);
+  }
+  return datos;
+}
+
+function renderProcesadoChart(){
+  const denomF = document.getElementById('dash-denom').value;
+  const rango = calcularRangoPeriodo();
+  const baches = DATA.baches.filter(b=> denomF==='todas' || b.denom===denomF);
+  const datos = construirSerieTemporal(baches, rango, b=>b.fecha, b=>b.peso_fresco);
   dibujarBarras('procesado-chart', datos, ()=>'var(--amber)', 'Sin fruto fresco registrado en el periodo seleccionado.');
 }
 
 function renderProcesadoSecoChart(){
-  const anio = document.getElementById('dash-anio').value;
-  const mes = document.getElementById('dash-mes').value;
   const denomF = document.getElementById('dash-denom').value;
+  const rango = calcularRangoPeriodo();
   const baches = DATA.baches.filter(b=> (denomF==='todas' || b.denom===denomF) && b.peso_final!=null && fechaEmpaque(b));
-
-  let datos;
-  if(anio==='todos'){
-    const hoy = new Date();
-    const porDia = {};
-    baches.forEach(b=>{ const f=fechaEmpaque(b); porDia[f] = (porDia[f]||0) + b.peso_final; });
-    datos = [];
-    for(let d=13; d>=0; d--){
-      const dt = new Date(hoy); dt.setDate(dt.getDate()-d);
-      const key = `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
-      datos.push({label:`${dt.getDate()}/${dt.getMonth()+1}`, kg: porDia[key]||0});
-    }
-  } else if(mes==='todos'){
-    const porMes = Array(12).fill(0);
-    baches.forEach(b=>{
-      const f = fechaEmpaque(b); const [y,m] = f.split('-');
-      if(y===anio) porMes[parseInt(m,10)-1] += b.peso_final;
-    });
-    datos = porMes.map((kg,i)=>({label:MESES_LABEL[i], kg}));
-  } else {
-    const diasEnMes = new Date(parseInt(anio,10), parseInt(mes,10), 0).getDate();
-    const porDia = {};
-    baches.forEach(b=>{ const f=fechaEmpaque(b); porDia[f] = (porDia[f]||0) + b.peso_final; });
-    datos = [];
-    for(let d=1; d<=diasEnMes; d++){
-      const key = `${anio}-${mes}-${String(d).padStart(2,'0')}`;
-      datos.push({label:String(d), kg: porDia[key]||0});
-    }
-  }
+  const datos = construirSerieTemporal(baches, rango, b=>fechaEmpaque(b), b=>b.peso_final);
   dibujarBarras('procesado-seco-chart', datos, ()=>'var(--ok)', 'Sin cacao seco empacado en el periodo seleccionado.');
 }
 
 function renderDenomDonut(){
-  const anio = document.getElementById('dash-anio').value;
-  const mes = document.getElementById('dash-mes').value;
-  const filtrados = filtrarPorPeriodo(DATA.baches, anio, mes);
+  const rango = calcularRangoPeriodo();
+  const filtrados = filtrarPorRango(DATA.baches, rango);
   const totals = {ccn51:0, aromatico:0, upia:0};
   filtrados.forEach(b=>{ totals[b.denom] += b.peso_fresco; });
   const total = totals.ccn51 + totals.aromatico + totals.upia;
@@ -219,7 +191,7 @@ function renderDenomDonut(){
     return `<div style="display:flex; align-items:center; gap:8px; font-size:13px; margin-bottom:6px;">
       <span style="width:11px; height:11px; border-radius:2px; background:${DENOM[k].color}; display:inline-block;"></span>
       <span>${DENOM[k].label}</span>
-      <span class="op-meta" style="margin-left:auto;">${pct.toFixed(1)}% · ${(totals[k]/1000).toFixed(1)} ton</span>
+      <span class="op-meta" style="margin-left:auto;">${pct.toFixed(1)}% · ${(totals[k]/1000).toFixed(2)} ton</span>
     </div>`;
   }).join('');
   el.innerHTML = `
@@ -227,7 +199,7 @@ function renderDenomDonut(){
       <div style="position:relative; width:110px; height:110px; flex-shrink:0;">
         <div style="width:110px; height:110px; border-radius:50%; background:conic-gradient(${stops});"></div>
         <div style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:64px; height:64px; border-radius:50%; background:var(--bg); display:flex; align-items:center; justify-content:center; text-align:center;">
-          <span style="font-size:11px; color:var(--ink-dim); font-family:'IBM Plex Mono',monospace;">${(total/1000).toFixed(1)}<br>ton</span>
+          <span style="font-size:11px; color:var(--ink-dim); font-family:'IBM Plex Mono',monospace;">${(total/1000).toFixed(2)}<br>ton</span>
         </div>
       </div>
       <div style="flex:1; min-width:200px;">${legend}</div>
@@ -235,17 +207,13 @@ function renderDenomDonut(){
 }
 
 function renderDespachadoResumen(){
-  const anio = document.getElementById('dash-anio').value;
-  const mes = document.getElementById('dash-mes').value;
   const denomF = document.getElementById('dash-denom').value;
+  const rango = calcularRangoPeriodo();
 
   const despachados = DATA.lotes.filter(l=>l.despacho).filter(l=>{
     if(denomF!=='todas' && l.denom!==denomF) return false;
-    if(anio==='todos') return true;
-    const [y,m] = l.despacho.fecha.slice(0,10).split('-');
-    if(y!==anio) return false;
-    if(mes==='todos') return true;
-    return m===mes;
+    const f = l.despacho.fecha.slice(0,10);
+    return f >= rango.desde && f <= rango.hasta;
   });
 
   const totalKg = despachados.reduce((s,l)=>s+l.total_kg,0);
@@ -254,11 +222,11 @@ function renderDespachadoResumen(){
 
   document.getElementById('inventario-despachado').innerHTML = despachados.length ? `
     <div class="dash-grid">
-      <div class="dash-card"><div class="n">${(totalKg/1000).toFixed(1)}</div><div class="label">Ton despachadas (periodo)</div></div>
+      <div class="dash-card"><div class="n">${(totalKg/1000).toFixed(2)}</div><div class="label">Ton despachadas (periodo)</div></div>
       <div class="dash-card"><div class="n">${despachados.length}</div><div class="label">Lotes despachados</div></div>
-      <div class="dash-card"><div class="n">${(porDenom.ccn51/1000).toFixed(1)}</div><div class="label">CCN-51 (ton)</div></div>
-      <div class="dash-card"><div class="n">${(porDenom.aromatico/1000).toFixed(1)}</div><div class="label">Aromático (ton)</div></div>
-      <div class="dash-card"><div class="n">${(porDenom.upia/1000).toFixed(1)}</div><div class="label">Upia (ton)</div></div>
+      <div class="dash-card"><div class="n">${(porDenom.ccn51/1000).toFixed(2)}</div><div class="label">CCN-51 (ton)</div></div>
+      <div class="dash-card"><div class="n">${(porDenom.aromatico/1000).toFixed(2)}</div><div class="label">Aromático (ton)</div></div>
+      <div class="dash-card"><div class="n">${(porDenom.upia/1000).toFixed(2)}</div><div class="label">Upia (ton)</div></div>
     </div>` : '<div class="empty">Sin lotes despachados en el periodo seleccionado.</div>';
 }
 
@@ -277,10 +245,10 @@ function renderInventarioProceso(){
 
   document.getElementById('inventario-proceso').innerHTML = `
     <div class="dash-grid">
-      <div class="dash-card"><div class="n">${(totalEquiv/1000).toFixed(1)}</div><div class="label">Ton equiv. seco en proceso (estimado)</div></div>
-      <div class="dash-card"><div class="n">${(porDenomProceso.ccn51/1000).toFixed(1)}</div><div class="label">CCN-51 (ton eq. seco)</div></div>
-      <div class="dash-card"><div class="n">${(porDenomProceso.aromatico/1000).toFixed(1)}</div><div class="label">Aromático (ton eq. seco)</div></div>
-      <div class="dash-card"><div class="n">${(porDenomProceso.upia/1000).toFixed(1)}</div><div class="label">Upia (ton eq. seco)</div></div>
+      <div class="dash-card"><div class="n">${(totalEquiv/1000).toFixed(2)}</div><div class="label">Ton equiv. seco en proceso (estimado)</div></div>
+      <div class="dash-card"><div class="n">${(porDenomProceso.ccn51/1000).toFixed(2)}</div><div class="label">CCN-51 (ton eq. seco)</div></div>
+      <div class="dash-card"><div class="n">${(porDenomProceso.aromatico/1000).toFixed(2)}</div><div class="label">Aromático (ton eq. seco)</div></div>
+      <div class="dash-card"><div class="n">${(porDenomProceso.upia/1000).toFixed(2)}</div><div class="label">Upia (ton eq. seco)</div></div>
     </div>`;
 
   // En bodega: ya empacado y pesado, cifra real (no estimada). Se descuenta lo ya despachado (parcial o total).
@@ -294,21 +262,25 @@ function renderInventarioProceso(){
 
   document.getElementById('inventario-bodega').innerHTML = `
     <div class="dash-grid">
-      <div class="dash-card"><div class="n">${(totalBodega/1000).toFixed(1)}</div><div class="label">Ton reales en bodega / ${ALMACEN_CAP.totalTon} ton cap.</div></div>
-      <div class="dash-card"><div class="n">${(porDenomBodega.ccn51/1000).toFixed(1)}</div><div class="label">CCN-51 (ton)</div></div>
-      <div class="dash-card"><div class="n">${(porDenomBodega.aromatico/1000).toFixed(1)}</div><div class="label">Aromático (ton)</div></div>
-      <div class="dash-card"><div class="n">${(porDenomBodega.upia/1000).toFixed(1)}</div><div class="label">Upia (ton)</div></div>
-      <div class="dash-card"><div class="n">${(totalG1/1000).toFixed(1)}</div><div class="label">Grado 1 (ton)</div></div>
-      <div class="dash-card"><div class="n">${(totalG2/1000).toFixed(1)}</div><div class="label">Grado 2 (ton)</div></div>
-      <div class="dash-card"><div class="n">${(totalImp/1000).toFixed(1)}</div><div class="label">Impurezas (ton)</div></div>
+      <div class="dash-card"><div class="n">${(totalBodega/1000).toFixed(2)}</div><div class="label">Ton reales en bodega / ${DATA.capacidadMaestro.almacenTotalTon} ton cap.</div></div>
+      <div class="dash-card"><div class="n">${(porDenomBodega.ccn51/1000).toFixed(2)}</div><div class="label">CCN-51 (ton)</div></div>
+      <div class="dash-card"><div class="n">${(porDenomBodega.aromatico/1000).toFixed(2)}</div><div class="label">Aromático (ton)</div></div>
+      <div class="dash-card"><div class="n">${(porDenomBodega.upia/1000).toFixed(2)}</div><div class="label">Upia (ton)</div></div>
+      <div class="dash-card"><div class="n">${(totalG1/1000).toFixed(2)}</div><div class="label">Grado 1 (ton)</div></div>
+      <div class="dash-card"><div class="n">${(totalG2/1000).toFixed(2)}</div><div class="label">Grado 2 (ton)</div></div>
+      <div class="dash-card"><div class="n">${(totalImp/1000).toFixed(2)}</div><div class="label">Impurezas (ton)</div></div>
     </div>`;
 }
 
+const PERIODO_LABELS = {
+  semana: 'Última semana', quincena: 'Última quincena', mes_calendario: 'Mes calendario actual',
+  trimestre: 'Últimos 3 meses', semestre: 'Último semestre', todo: 'Todo el historial', personalizado: 'Personalizado'
+};
+
 function renderDashboardKPIs(){
-  const anio = document.getElementById('dash-anio').value;
-  const mes = document.getElementById('dash-mes').value;
   const denomF = document.getElementById('dash-denom').value;
-  const periodo = filtrarPorPeriodo(DATA.baches, anio, mes).filter(b=> denomF==='todas' || b.denom===denomF);
+  const rango = calcularRangoPeriodo();
+  const periodo = filtrarPorRango(DATA.baches, rango).filter(b=> denomF==='todas' || b.denom===denomF);
 
   const totalFresco = periodo.reduce((s,b)=>s+b.peso_fresco,0);
   const totalSeco = periodo.reduce((s,b)=>s+(b.peso_final||0),0);
@@ -316,23 +288,22 @@ function renderDashboardKPIs(){
   const enBodega = DATA.baches.filter(b=>b.etapaIdx===7).reduce((s,b)=>s+kgEnBodegaSinDespachar(b),0);
 
   document.getElementById('dash-kpis').innerHTML = `
-    <div class="dash-card kpi"><div class="n">${(totalFresco/1000).toFixed(1)}</div><div class="label">Ton fresco ingresado (periodo)</div></div>
-    <div class="dash-card kpi"><div class="n">${(totalSeco/1000).toFixed(1)}</div><div class="label">Ton seco procesado (periodo)</div></div>
+    <div class="dash-card kpi"><div class="n">${(totalFresco/1000).toFixed(2)}</div><div class="label">Ton fresco ingresado (periodo)</div></div>
+    <div class="dash-card kpi"><div class="n">${(totalSeco/1000).toFixed(2)}</div><div class="label">Ton seco procesado (periodo)</div></div>
     <div class="dash-card kpi"><div class="n">${conversion!=null ? conversion.toFixed(1)+'%' : '—'}</div><div class="label">% conversión real (seco / fresco × 100)${conversion==null ? ' — aún sin cacao seco en el periodo' : ''}</div></div>
-    <div class="dash-card kpi"><div class="n">${(enBodega/1000).toFixed(1)}</div><div class="label">Ton en bodega ahora</div></div>
+    <div class="dash-card kpi"><div class="n">${(enBodega/1000).toFixed(2)}</div><div class="label">Ton en bodega ahora</div></div>
   `;
 
-  const mesLabel = mes==='todos' ? '' : (' ' + MESES_LABEL[parseInt(mes,10)-1]);
-  const periodoTxt = anio==='todos' ? 'Últimos 14 días' : `${mesLabel} ${anio}`.trim();
+  const periodoSel = document.getElementById('dash-periodo').value;
+  const periodoTxt = periodoSel==='personalizado' ? `${rango.desde} a ${rango.hasta}` : PERIODO_LABELS[periodoSel];
   const denomTxt = denomF==='todas' ? 'Todas las denominaciones' : DENOM[denomF].label;
   document.getElementById('dash-fecha-reporte').textContent = `Generado ${fmtDate(new Date())} · Periodo: ${periodoTxt} · ${denomTxt}`;
 }
 
 function exportarDashboardCSV(){
-  const anio = document.getElementById('dash-anio').value;
-  const mes = document.getElementById('dash-mes').value;
   const denomF = document.getElementById('dash-denom').value;
-  const periodo = filtrarPorPeriodo(DATA.baches, anio, mes).filter(b=> denomF==='todas' || b.denom===denomF);
+  const rango = calcularRangoPeriodo();
+  const periodo = filtrarPorRango(DATA.baches, rango).filter(b=> denomF==='todas' || b.denom===denomF);
   const cols = ['codigo','fecha','denominacion','peso_fresco_kg','peso_seco_kg','fecha_empaque'];
   const filas = periodo.map(b=>[b.codigo, b.fecha, b.denom, b.peso_fresco, b.peso_final || '', fechaEmpaque(b) || '']);
   const csv = [cols.join(',')].concat(filas.map(f=>f.map(csvEscape).join(','))).join('\n');
@@ -392,18 +363,18 @@ function renderProyeccionCapacidad(){
 
   const alertas = [];
   const rows = TIME_UNIDADES.map(idx=>{
-    const cap = CAPACIDAD[STAGES[idx]];
+    const cap = capacidadDe(STAGES[idx]);
     const capKg = cap ? cap.total*cap.capKg : null;
     let primeraSaturacion = -1;
     const cells = ocupacion[idx].map((kg,d)=>{
       const over = capKg!=null && kg>capKg;
       if(over && primeraSaturacion===-1) primeraSaturacion = d;
-      const texto = capKg!=null ? `${(kg/1000).toFixed(1)}/${(capKg/1000).toFixed(0)}` : `${(kg/1000).toFixed(1)}`;
+      const texto = capKg!=null ? `${(kg/1000).toFixed(2)}/${(capKg/1000).toFixed(0)}` : `${(kg/1000).toFixed(2)}`;
       return `<td class="${over?'proy-saturado':''}">${texto}</td>`;
     }).join('');
     if(primeraSaturacion>=0){
       const dt = new Date(hoy); dt.setDate(dt.getDate()+primeraSaturacion);
-      alertas.push(`<div class="msg err">${STAGES[idx]}: se proyecta saturación el ${fmtDate(dt)} (${(ocupacion[idx][primeraSaturacion]/1000).toFixed(1)}/${(capKg/1000).toFixed(0)} ton) — la producción de ese día podría retrasarse.</div>`);
+      alertas.push(`<div class="msg err">${STAGES[idx]}: se proyecta saturación el ${fmtDate(dt)} (${(ocupacion[idx][primeraSaturacion]/1000).toFixed(2)}/${(capKg/1000).toFixed(0)} ton) — la producción de ese día podría retrasarse.</div>`);
     }
     return `<tr><td class="codigo-col">${STAGES[idx]} (ton)</td>${cells}</tr>`;
   }).join('');
@@ -492,7 +463,7 @@ function renderProyeccionBodega(){
   const dias = 21;
   document.getElementById('proy-bodega-factor').textContent = `Factor de conversión de referencia: ${DATA.maestroConversion.seco} kg de seco por tonelada de fresco (editable en Panel → Configuración).`;
   const timeline = proyeccionBodega(dias);
-  const capKg = ALMACEN_CAP.totalTon * 1000;
+  const capKg = DATA.capacidadMaestro.almacenTotalTon * 1000;
   const max = Math.max(capKg, ...timeline.map(t=>t.kg)) * 1.15;
   const boxW=34, gap=6, chartH=150, startX=10, topPad=28, botPad=30;
   let bars = '';
@@ -505,16 +476,16 @@ function renderProyeccionBodega(){
       ? `Llegarían: ${t.llegadas.map(a=>`${a.codigo} (${(a.kg/1000).toFixed(2)}t)`).join(', ')}`
       : 'Sin llegadas proyectadas ese día';
     bars += `<g>
-      <title>${fmtDate(t.fecha)} · ${(t.kg/1000).toFixed(1)} ton acumuladas · ${tooltip}</title>
+      <title>${fmtDate(t.fecha)} · ${(t.kg/1000).toFixed(2)} ton acumuladas · ${tooltip}</title>
       <rect x="${x}" y="${y}" width="${boxW}" height="${Math.max(h,1)}" rx="2" style="fill:${over?'var(--warn)':'var(--ok)'};"/>
-      <text x="${x+boxW/2}" y="${y-5}" text-anchor="middle" style="font-size:8.5px; fill:var(--ink); font-family:'IBM Plex Mono';">${(t.kg/1000).toFixed(1)}</text>
+      <text x="${x+boxW/2}" y="${y-5}" text-anchor="middle" style="font-size:8.5px; fill:var(--ink); font-family:'IBM Plex Mono';">${(t.kg/1000).toFixed(2)}</text>
       <text x="${x+boxW/2}" y="${chartH+topPad+16}" text-anchor="middle" style="font-size:9px; fill:var(--ink-dim); font-family:'Space Grotesk';">${t.fecha.getDate()}/${t.fecha.getMonth()+1}</text>
     </g>`;
   });
   const capY = chartH - (capKg/max)*chartH + topPad;
   const totalWidth = startX*2 + timeline.length*(boxW+gap);
   const capLine = `<line x1="0" y1="${capY}" x2="${totalWidth}" y2="${capY}" style="stroke:var(--warn); stroke-width:1; stroke-dasharray:4,3;"/>
-    <text x="${totalWidth-2}" y="${capY-4}" text-anchor="end" style="font-size:9px; fill:var(--warn); font-family:'IBM Plex Mono';">${ALMACEN_CAP.totalTon} ton cap.</text>`;
+    <text x="${totalWidth-2}" y="${capY-4}" text-anchor="end" style="font-size:9px; fill:var(--warn); font-family:'IBM Plex Mono';">${DATA.capacidadMaestro.almacenTotalTon} ton cap.</text>`;
   document.getElementById('proy-bodega-chart').innerHTML =
     `<svg viewBox="0 0 ${totalWidth} ${chartH+topPad+botPad}" style="width:100%; min-width:${totalWidth}px; display:block;">${capLine}${bars}</svg>`;
 
@@ -522,7 +493,7 @@ function renderProyeccionBodega(){
   const sugerencia = document.getElementById('proy-bodega-sugerencia');
   if(overflowDay){
     const exceso = overflowDay.kg - capKg;
-    sugerencia.innerHTML = `<div class="msg err">Proyectado a superar la capacidad de bodega (${ALMACEN_CAP.totalTon} ton) el ${fmtDate(overflowDay.fecha)}, por ${(exceso/1000).toFixed(1)} ton. Se recomienda despachar un lote de venta antes de esa fecha.</div>`;
+    sugerencia.innerHTML = `<div class="msg err">Proyectado a superar la capacidad de bodega (${DATA.capacidadMaestro.almacenTotalTon} ton) el ${fmtDate(overflowDay.fecha)}, por ${(exceso/1000).toFixed(2)} ton. Se recomienda despachar un lote de venta antes de esa fecha.</div>`;
   } else {
     sugerencia.innerHTML = `<div class="msg ok">No se proyecta saturación de bodega en los próximos ${dias} días.</div>`;
   }
@@ -600,7 +571,6 @@ function renderLotesHistorial(){
 function render(){
   actualizarEncabezado();
   renderTrazabilidad();
-  poblarFiltroAnio();
   renderProcesadoChart();
   renderProcesadoSecoChart();
   renderDenomDonut();
@@ -615,13 +585,20 @@ function render(){
 }
 
 inicializarTabs();
+inicializarGateSimple('phc-tablero-2026', 'acceso-valido-tablero');
 document.getElementById('trace-f-denom').addEventListener('change', render);
 document.getElementById('trace-f-desde').addEventListener('change', render);
 document.getElementById('trace-f-hasta').addEventListener('change', render);
 document.getElementById('trace-f-area').addEventListener('change', render);
 document.getElementById('trace-f-despachados').addEventListener('change', render);
-document.getElementById('dash-anio').addEventListener('change', render);
-document.getElementById('dash-mes').addEventListener('change', render);
+document.getElementById('dash-periodo').addEventListener('change', ()=>{
+  const esPersonalizado = document.getElementById('dash-periodo').value === 'personalizado';
+  document.getElementById('dash-desde-wrap').style.display = esPersonalizado ? 'flex' : 'none';
+  document.getElementById('dash-hasta-wrap').style.display = esPersonalizado ? 'flex' : 'none';
+  render();
+});
+document.getElementById('dash-desde').addEventListener('change', render);
+document.getElementById('dash-hasta').addEventListener('change', render);
 document.getElementById('dash-denom').addEventListener('change', render);
 document.getElementById('btn-export-dashboard-csv').addEventListener('click', exportarDashboardCSV);
 document.getElementById('btn-print-dashboard').addEventListener('click', imprimirDashboard);

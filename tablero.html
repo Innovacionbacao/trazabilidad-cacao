@@ -20,12 +20,22 @@
   <span class="page-role">Tablero gerencial</span>
 </header>
 
-<div class="page-links">
-  <a href="index.html">Captura</a>
-  <span>·</span>
-  <a href="tablero.html" class="current">Tablero</a>
-  <span>·</span>
-  <a href="panel.html">Panel</a>
+<div class="action-bar">
+  <nav class="page-links">
+    <a href="index.html">Captura</a>
+    <a href="tablero.html" class="current">Tablero</a>
+    <a href="panel.html">Panel</a>
+  </nav>
+</div>
+
+<div id="gate-overlay" class="gate-overlay">
+  <div class="gate-card">
+    <img src="logo-bacao.png" alt="Bacao" class="gate-logo">
+    <h2>Trazabilidad PHC — Tablero</h2>
+    <div class="field"><label>Clave de acceso</label><input type="password" id="gate-clave" autocomplete="off"></div>
+    <div id="gate-msg"></div>
+    <button id="gate-btn" class="big">Entrar</button>
+  </div>
 </div>
 
 <nav class="tabs">
@@ -52,16 +62,19 @@
     <div class="report-card">
       <p class="block-title">Filtros</p>
       <div class="mapa-form">
-        <div class="field"><label>Año</label><select id="dash-anio"></select></div>
-        <div class="field"><label>Mes</label>
-          <select id="dash-mes">
-            <option value="todos">Todos</option>
-            <option value="01">Enero</option><option value="02">Febrero</option><option value="03">Marzo</option>
-            <option value="04">Abril</option><option value="05">Mayo</option><option value="06">Junio</option>
-            <option value="07">Julio</option><option value="08">Agosto</option><option value="09">Septiembre</option>
-            <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
+        <div class="field"><label>Periodo</label>
+          <select id="dash-periodo">
+            <option value="semana">Última semana</option>
+            <option value="quincena">Última quincena</option>
+            <option value="mes_calendario" selected>Mes calendario actual</option>
+            <option value="trimestre">Últimos 3 meses</option>
+            <option value="semestre">Último semestre</option>
+            <option value="todo">Todo el historial</option>
+            <option value="personalizado">Personalizado…</option>
           </select>
         </div>
+        <div class="field" id="dash-desde-wrap" style="display:none;"><label>Desde</label><input type="date" id="dash-desde"></div>
+        <div class="field" id="dash-hasta-wrap" style="display:none;"><label>Hasta</label><input type="date" id="dash-hasta"></div>
         <div class="field"><label>Denominación</label>
           <select id="dash-denom">
             <option value="todas">Todas</option>

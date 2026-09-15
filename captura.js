@@ -40,8 +40,8 @@ function renderResumenHoyAyer(){
   const kgAyer = deAyer.reduce((s,b)=>s+b.peso_fresco,0);
 
   document.getElementById('resumen-hoy-ayer').innerHTML = `
-    <div class="dash-card"><div class="n">${kgHoy}</div><div class="label">kg recibidos hoy (${deHoy.length} bache${deHoy.length===1?'':'s'})</div></div>
-    <div class="dash-card"><div class="n">${kgAyer}</div><div class="label">kg recibidos ayer (${deAyer.length} bache${deAyer.length===1?'':'s'})</div></div>
+    <div class="dash-card"><div class="n">${(kgHoy/1000).toFixed(2)}</div><div class="label">ton recibidas hoy (${deHoy.length} bache${deHoy.length===1?'':'s'})</div></div>
+    <div class="dash-card"><div class="n">${(kgAyer/1000).toFixed(2)}</div><div class="label">ton recibidas ayer (${deAyer.length} bache${deAyer.length===1?'':'s'})</div></div>
   `;
 }
 
@@ -148,6 +148,12 @@ async function avanzarEtapa(codigo){
     }
   }
 
+  const siguienteEtapaTxt = siguienteEtapaVisible(b.etapaIdx);
+  const confirmTxt = cantidad < b.peso_fresco - 0.01
+    ? `¿Confirmas mover ${cantidad} kg del bache ${codigo} a ${siguienteEtapaTxt}? El resto (${(b.peso_fresco-cantidad).toFixed(1)} kg) se queda en ${STAGES[b.etapaIdx]}.`
+    : `¿Confirmas mover el bache ${codigo} completo (${b.peso_fresco} kg) a ${siguienteEtapaTxt}?`;
+  if(!confirm(confirmTxt)) return;
+
   // Si la cantidad a mover es menor al total, se separa un bache parcial con ese peso;
   // el bache original conserva el resto, en la misma etapa, intacto.
   let target = b;
@@ -224,6 +230,8 @@ async function registrarEmpaque(codigo){
     return;
   }
 
+  if(!confirm(`¿Confirmas el empaque del bache ${codigo}? G1 ${g1} kg, G2 ${g2} kg, impurezas ${imp} kg. Esto lo pasa a Almacenado.`)) return;
+
   const inicio = new Date(b.horaInicioEtapa);
   const duracionHoras = (horaReal - inicio) / 3600000;
   const limite = limiteHoras(b.etapaIdx);
@@ -266,6 +274,45 @@ async function eliminarBache(codigo){
   render();
 }
 
+async function retrocederEtapa(codigo){
+  const b = DATA.baches.find(x=>x.codigo===codigo);
+  const operario = getOperario();
+  if(!operario){
+    alert('Escribe tu nombre en "Operario" arriba antes de retroceder un bache.');
+    return;
+  }
+  if(b.etapaIdx===7 && (b.liberado || (b.lvAsignaciones||[]).length>0)){
+    alert('Este bache ya fue liberado o asignado a un lote de venta; no se puede retroceder desde aquí. Corrígelo desde Panel si es necesario.');
+    return;
+  }
+  if(!b.historial.length){
+    alert('Este bache está en su primera etapa, no hay a dónde retroceder.');
+    return;
+  }
+  if(!confirm(`¿Confirmas devolver el bache ${codigo} a la etapa anterior? Se descontará el paso más reciente de su historial.`)) return;
+
+  const eraEmpaque = b.etapaIdx === 7;
+  let entry = b.historial.pop();
+  if(entry && entry.etapaNombre === 'Despulpado'){
+    const entryReal = b.historial.pop();
+    if(entryReal) entry = entryReal;
+  }
+  if(!entry) return;
+
+  if(eraEmpaque){
+    b.peso_g1 = null; b.peso_g2 = null; b.peso_impurezas = null; b.peso_final = null; b.liberado = false;
+  }
+  if(entry.etapaIdx === 5){
+    b.humedadSalida = null;
+  }
+  b.etapaIdx = entry.etapaIdx;
+  b.horaInicioEtapa = entry.horaInicio;
+  registrarMovimiento('Retroceso de etapa', `Bache ${codigo}: vuelve a ${STAGES[b.etapaIdx]}`, operario);
+  opSeleccionado = null;
+  await save();
+  render();
+}
+
 function renderOpCard(b){
   const denomInfo = DENOM[b.denom];
   const now = new Date();
@@ -304,9 +351,9 @@ function renderOpCard(b){
         </div>`;
     } else {
       const siguiente = siguienteEtapaVisible(b.etapaIdx);
-      const capSig = CAPACIDAD[siguiente];
+      const capSig = capacidadDe(siguiente);
       const preview = capSig
-        ? `Aportará <b>${pesoRelevante(b).toFixed(0)} kg</b> a ${siguiente} (o la cantidad parcial que indiques).`
+        ? `Aportará <b>${(pesoRelevante(b)/1000).toFixed(2)} ton</b> a ${siguiente} (o la cantidad parcial que indiques).`
         : (siguiente==='Almacenado' ? `Ocupará bodega al empacar (aún sin peso seco).` : '');
       const humedadField = b.etapaIdx===5
         ? `<div class="field"><label>Humedad de salida (%)</label><input type="number" id="mov-humedad-${b.codigo}" min="0" max="100" step="0.1"></div>`
@@ -314,7 +361,10 @@ function renderOpCard(b){
       accion += `
         <div class="op-action" onclick="event.stopPropagation()">
           <div class="row">
-            <div class="field"><label>Cantidad a mover (kg, máx ${b.peso_fresco})</label><input type="number" id="mov-cantidad-${b.codigo}" min="0" max="${b.peso_fresco}" step="0.1" value="${b.peso_fresco}"></div>
+            <div class="field"><label>Cantidad a mover (kg, máx ${b.peso_fresco})</label>
+              <input type="number" id="mov-cantidad-${b.codigo}" min="0" max="${b.peso_fresco}" step="0.1" value="${b.peso_fresco}" oninput="document.getElementById('mov-cantidad-slider-${b.codigo}').value=this.value">
+              <input type="range" id="mov-cantidad-slider-${b.codigo}" min="0" max="${b.peso_fresco}" step="0.1" value="${b.peso_fresco}" style="width:100%; margin-top:8px;" oninput="document.getElementById('mov-cantidad-${b.codigo}').value=this.value">
+            </div>
             ${humedadField}
             <div class="field"><label>Fecha y hora real de traslado a ${siguiente}</label><input type="datetime-local" id="mov-hora-${b.codigo}" value="${toLocalInputValue(new Date())}"></div>
           </div>
@@ -334,6 +384,7 @@ function renderOpCard(b){
         <button class="secondary" style="margin-left:auto;" onclick="event.stopPropagation(); seleccionarOp('${b.codigo}')">
           ${opSeleccionado===b.codigo ? 'Cerrar' : 'Cambiar de etapa'}
         </button>
+        ${b.historial.length ? `<button class="secondary" onclick="event.stopPropagation(); retrocederEtapa('${b.codigo}')">↩ Retroceder</button>` : ''}
       </div>
       <div class="op-dur ${durClass}">${durTxt}${limTxt}${excedido?' — excedido':''}</div>
       ${accion}
@@ -427,7 +478,9 @@ function renderCapTable(){
 }
 
 /* ---------- OPERARIO (identificación de quien usa la tableta) ---------- */
-function getOperario(){ return document.getElementById('operario-nombre').value.trim(); }
+function getOperario(){
+  try{ return localStorage.getItem('operario-nombre') || ''; }catch(e){ return ''; }
+}
 
 /* ---------- RENDER Y ARRANQUE DE ESTA PÁGINA ---------- */
 function render(){
@@ -448,10 +501,83 @@ document.getElementById('f-directo').addEventListener('change', updateCodigoPrev
 document.getElementById('btn-registrar').addEventListener('click', registrarBache);
 document.getElementById('f-fecha').value = toLocalInputValue(new Date());
 
-const operarioInput = document.getElementById('operario-nombre');
-try{ operarioInput.value = localStorage.getItem('operario-nombre') || ''; }catch(e){ /* sin localStorage */ }
-operarioInput.addEventListener('input', ()=>{
-  try{ localStorage.setItem('operario-nombre', operarioInput.value.trim()); }catch(e){ /* sin localStorage */ }
+/* ---------- Ventana inicial de acceso (operario + clave) ---------- */
+// La clave es solo para que nadie entre por accidente, igual que en la app de
+// mantenimiento — no sirve para guardar secretos reales. Cámbiala aquí y avísale
+// al equipo cuando la cambies.
+const CLAVE_ACCESO_PANTALLA = '202699';
+
+function actualizarDisplayOperario(){
+  document.getElementById('operario-display-nombre').textContent = getOperario() || '—';
+}
+
+function mostrarGate(prellenarNombre){
+  document.getElementById('gate-operario').value = prellenarNombre || '';
+  document.getElementById('gate-clave').value = '';
+  document.getElementById('gate-msg').innerHTML = '';
+  document.getElementById('gate-overlay').style.display = 'flex';
+  document.getElementById('gate-operario').focus();
+}
+function ocultarGate(){
+  document.getElementById('gate-overlay').style.display = 'none';
+}
+
+function verificarAcceso(){
+  const yaValidado = (()=>{ try{ return localStorage.getItem('acceso-valido') === 'si'; }catch(e){ return false; } })();
+  if(yaValidado && getOperario()){
+    actualizarDisplayOperario();
+  } else {
+    mostrarGate(getOperario());
+  }
+}
+
+document.getElementById('gate-btn').addEventListener('click', ()=>{
+  const nombre = document.getElementById('gate-operario').value.trim();
+  const clave = document.getElementById('gate-clave').value.trim();
+  const msg = document.getElementById('gate-msg');
+  if(!nombre){ msg.innerHTML = '<div class="msg err">Escribe tu nombre.</div>'; return; }
+  if(clave !== CLAVE_ACCESO_PANTALLA){ msg.innerHTML = '<div class="msg err">Clave incorrecta.</div>'; return; }
+  try{
+    localStorage.setItem('operario-nombre', nombre);
+    localStorage.setItem('acceso-valido', 'si');
+  }catch(e){ /* sin localStorage: seguirá pidiendo acceso cada vez */ }
+  ocultarGate();
+  actualizarDisplayOperario();
+});
+document.getElementById('gate-clave').addEventListener('keydown', (e)=>{ if(e.key==='Enter') document.getElementById('gate-btn').click(); });
+
+document.getElementById('btn-cambiar-operario').addEventListener('click', (e)=>{
+  e.preventDefault();
+  mostrarGate(getOperario());
+});
+
+verificarAcceso();
+
+/* ---------- Botón "Instalar app" (PWA) ---------- */
+// Siempre visible: si el navegador ya tiene el instalador listo, lo usamos;
+// si no, mostramos cómo instalarla manualmente en vez de no hacer nada.
+let promptInstalacion = null;
+const btnInstalar = document.getElementById('btn-instalar-app');
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  promptInstalacion = e;
+});
+
+btnInstalar.addEventListener('click', async () => {
+  if(promptInstalacion){
+    btnInstalar.disabled = true;
+    promptInstalacion.prompt();
+    await promptInstalacion.userChoice;
+    promptInstalacion = null;
+    btnInstalar.disabled = false;
+  } else {
+    alert('Para instalar: toca el menú ⋮ de Chrome (arriba a la derecha) y elige "Instalar app" o "Agregar a pantalla de inicio".');
+  }
+});
+
+window.addEventListener('appinstalled', () => {
+  promptInstalacion = null;
 });
 
 load();

@@ -20,12 +20,22 @@
   <span class="page-role">Panel administrador</span>
 </header>
 
-<div class="page-links">
-  <a href="index.html">Captura</a>
-  <span>·</span>
-  <a href="tablero.html">Tablero</a>
-  <span>·</span>
-  <a href="panel.html" class="current">Panel</a>
+<div class="action-bar">
+  <nav class="page-links">
+    <a href="index.html">Captura</a>
+    <a href="tablero.html">Tablero</a>
+    <a href="panel.html" class="current">Panel</a>
+  </nav>
+</div>
+
+<div id="gate-overlay" class="gate-overlay">
+  <div class="gate-card">
+    <img src="logo-bacao.png" alt="Bacao" class="gate-logo">
+    <h2>Trazabilidad PHC — Panel</h2>
+    <div class="field"><label>Clave de acceso</label><input type="password" id="gate-clave" autocomplete="off"></div>
+    <div id="gate-msg"></div>
+    <button id="gate-btn" class="big">Entrar</button>
+  </div>
 </div>
 
 
@@ -42,6 +52,7 @@
       <button class="admin-tab active" data-admintab="config">Configuración</button>
       <button class="admin-tab" data-admintab="seguimiento">Seguimiento</button>
       <button class="admin-tab" data-admintab="lotes">Lotes de venta</button>
+      <button class="admin-tab" data-admintab="editar">Editar baches</button>
       <button class="admin-tab" data-admintab="movimientos">Movimientos</button>
       <button class="admin-tab" data-admintab="datos">Datos</button>
     </nav>
@@ -73,6 +84,29 @@
           último valor (seco final), sin importar en qué etapa esté el bache.
         </p>
       </div>
+
+      <div class="section-gap">
+        <p class="block-title">Maestro de capacidad (unidades físicas por etapa)</p>
+        <div class="mapa-form">
+          <div class="field"><label>Bines: cantidad</label><input type="number" id="cap-bines-total"></div>
+          <div class="field"><label>Bines: kg por bin</label><input type="number" id="cap-bines-kg"></div>
+          <div class="field"><label>Cajones anaeróbicos: cantidad</label><input type="number" id="cap-anaerobica-total"></div>
+          <div class="field"><label>Cajones anaeróbicos: kg por cajón</label><input type="number" id="cap-anaerobica-kg"></div>
+          <div class="field"><label>Cajones aeróbicos: cantidad</label><input type="number" id="cap-aerobica-total"></div>
+          <div class="field"><label>Cajones aeróbicos: kg por cajón</label><input type="number" id="cap-aerobica-kg"></div>
+          <div class="field"><label>Presecadoras: cantidad</label><input type="number" id="cap-presecado-total"></div>
+          <div class="field"><label>Presecadoras: kg cada una</label><input type="number" id="cap-presecado-kg"></div>
+          <div class="field"><label>Secadoras: cantidad</label><input type="number" id="cap-secado-total"></div>
+          <div class="field"><label>Secadoras: kg cada una</label><input type="number" id="cap-secado-kg"></div>
+          <div class="field"><label>Bodega: capacidad total (ton)</label><input type="number" id="cap-almacen-ton"></div>
+        </div>
+        <button class="secondary" id="btn-guardar-capacidad">Guardar maestro de capacidad</button>
+        <p class="op-meta" style="margin-top:10px;">
+          Cámbialo aquí cuando aumente la capacidad de la planta (más bines,
+          cajones, presecadoras/secadoras, o más bodega). Se aplica de
+          inmediato en Operación, Dashboard y Proyección.
+        </p>
+      </div>
     </div>
 
     <div class="admin-panel" id="admin-seguimiento">
@@ -89,6 +123,23 @@
       <p class="block-title">Generar lote de venta (baches liberados)</p>
       <div class="tabs-lv" id="lv-tabs"></div>
       <div class="lv-pool" id="lv-pool"></div>
+    </div>
+
+    <div class="admin-panel" id="admin-editar">
+      <p class="block-title">Editar bache capturado</p>
+      <div class="msg err" style="margin-bottom:16px;">
+        Esto modifica directamente el registro guardado — puede afectar capacidad,
+        trazabilidad, lotes de venta y reportes ya generados. Úsalo solo para
+        corregir errores de captura, y con el nombre del jefe de producción arriba.
+      </div>
+      <div class="mapa-form" style="max-width:420px;">
+        <div class="field"><label>Código de bache</label>
+          <input type="text" id="edit-buscar" list="edit-lista-codigos" placeholder="Escribe o elige un código">
+          <datalist id="edit-lista-codigos"></datalist>
+        </div>
+      </div>
+      <button class="secondary" id="btn-edit-cargar">Cargar bache</button>
+      <div id="edit-form-wrap" style="margin-top:20px;"></div>
     </div>
 
     <div class="admin-panel" id="admin-movimientos">

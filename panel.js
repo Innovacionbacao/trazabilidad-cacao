@@ -508,7 +508,7 @@ function render(){
 }
 
 inicializarAdminTabs();
-inicializarGateSimple('phc-panel-2026', 'acceso-valido-panel');
+inicializarGateSimple('phc2026', 'acceso-valido-panel');
 document.getElementById('btn-guardar-mapa').addEventListener('click', guardarMapaMaestro);
 document.getElementById('btn-guardar-conversion').addEventListener('click', guardarMaestroConversion);
 document.getElementById('btn-guardar-capacidad').addEventListener('click', guardarCapacidadMaestro);

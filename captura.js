@@ -314,6 +314,7 @@ async function registrarVolteo(codigo){
     alert('Escribe tu nombre en "Operario" arriba antes de registrar un volteo.');
     return;
   }
+  b.volteos = b.volteos || [];
   b.volteos.push({ hora: new Date().toISOString(), operario });
   registrarMovimiento('Volteo registrado', `Bache ${codigo}: volteo N° ${b.volteos.length}`, operario);
   await save();
@@ -386,9 +387,10 @@ function renderOpCard(b){
   let accion = '';
   if(opSeleccionado === b.codigo){
     if(b.etapaIdx === 3){
-      const ultimoVolteo = b.volteos.length ? fmtDateTime(new Date(b.volteos[b.volteos.length-1].hora)) : null;
+      const volteos = b.volteos || [];
+      const ultimoVolteo = volteos.length ? fmtDateTime(new Date(volteos[volteos.length-1].hora)) : null;
       accion += `
-        <div class="op-meta">Volteos registrados: <b>${b.volteos.length}</b>${ultimoVolteo ? ` · último: ${ultimoVolteo}` : ''}</div>
+        <div class="op-meta">Volteos registrados: <b>${volteos.length}</b>${ultimoVolteo ? ` · último: ${ultimoVolteo}` : ''}</div>
         <button class="secondary" onclick="event.stopPropagation(); registrarVolteo('${b.codigo}')">↻ Registrar volteo</button>`;
     }
     if(b.etapaIdx === 6){

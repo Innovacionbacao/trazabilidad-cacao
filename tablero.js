@@ -11,20 +11,15 @@ function seleccionarTrace(codigo){
   render();
 }
 
-function renderTrazabilidad(){
-  const selArea = document.getElementById('trace-f-area');
-  if(selArea.options.length===0){
-    selArea.innerHTML = '<option value="todas">Todas</option>' + UNIDADES.map(idx=>`<option value="${idx}">${STAGES[idx]}</option>`).join('');
-  }
+function bachesTrazabilidadFiltrados(){
   const fDenom = document.getElementById('trace-f-denom').value;
   const fDesde = document.getElementById('trace-f-desde').value;
   const fHasta = document.getElementById('trace-f-hasta').value;
-  const fArea = selArea.value;
+  const fArea = document.getElementById('trace-f-area').value;
   const incluirDespachados = document.getElementById('trace-f-despachados').checked;
-
   const despachados = setDespachados();
 
-  const todos = DATA.baches.filter(b=>{
+  return DATA.baches.filter(b=>{
     if(!incluirDespachados && despachados.has(b.codigo)) return false;
     if(fDenom!=='todas' && b.denom!==fDenom) return false;
     if(fDesde && b.fecha < fDesde) return false;
@@ -32,6 +27,29 @@ function renderTrazabilidad(){
     if(fArea!=='todas' && String(b.etapaIdx)!==fArea) return false;
     return true;
   }).sort((a,b)=> b.fecha.localeCompare(a.fecha) || a.codigo.localeCompare(b.codigo));
+}
+
+function exportarTrazabilidadExcel(){
+  const todos = bachesTrazabilidadFiltrados();
+  const cols = ['Código','Fecha','Denominación','Etapa actual','Peso fresco (kg)','Peso final G1 (kg)','G2 (kg)','Impurezas (kg)','Bultos','% conversión','Liberado','Despachado','Básculas'];
+  const filas = todos.map(b=>{
+    const conv = b.peso_final!=null ? (b.peso_final/b.peso_fresco*100).toFixed(1) : '';
+    return [
+      b.codigo, b.fecha, DENOM[b.denom].label, etapaMostrada(b),
+      b.peso_fresco, b.peso_final ?? '', b.peso_g2 ?? '', b.peso_impurezas ?? '', b.bultos ?? '',
+      conv, b.liberado ? 'Sí' : 'No', setDespachados().has(b.codigo) ? 'Sí' : 'No',
+      (b.basculas||[]).map(x=>`${x.numero} (${x.peso} kg)`).join(' / ')
+    ];
+  });
+  descargarExcel('trazabilidad-baches.xlsx', 'Trazabilidad', cols, filas);
+}
+
+function renderTrazabilidad(){
+  const selArea = document.getElementById('trace-f-area');
+  if(selArea.options.length===0){
+    selArea.innerHTML = '<option value="todas">Todas</option>' + UNIDADES.map(idx=>`<option value="${idx}">${STAGES[idx]}</option>`).join('');
+  }
+  const todos = bachesTrazabilidadFiltrados();
 
   const list = document.getElementById('trace-list');
   if(todos.length===0){ list.innerHTML = '<div class="empty">Ningún bache coincide con los filtros.</div>'; return; }
@@ -59,7 +77,7 @@ function renderTrazabilidad(){
           <td>—</td>
         </tr>`;
       const grados = b.peso_final!=null
-        ? ` · Seco total: ${b.peso_final} kg (G1 ${b.peso_g1 ?? '—'} kg, G2 ${b.peso_g2 ?? '—'} kg, impurezas ${b.peso_impurezas ?? 0} kg)`
+        ? ` · Seco total: ${b.peso_final} kg (G1 ${b.peso_g1 ?? '—'} kg, G2 ${b.peso_g2 ?? '—'} kg, impurezas ${b.peso_impurezas ?? 0} kg)${b.factorConversion!=null ? ` · <span style="color:${(b.factorConversion<25||b.factorConversion>40)?'var(--warn)':'var(--ok)'}; font-weight:600;">% conversión: ${b.factorConversion}%</span>` : ''}`
         : '';
       const basculasTxt = (b.basculas||[]).map(x=>`${x.numero} (${x.peso} kg)`).join(', ');
       const disponible = disponibleLV(b);
@@ -524,6 +542,13 @@ function renderRemanenteG1(){
     </div>`;
 }
 
+function renderCacaoLocalTablero(){
+  document.getElementById('cacao-local-resumen').innerHTML = `
+    <div class="dash-grid">
+      <div class="dash-card"><div class="n">${((DATA.cacaoLocal.total||0)/1000).toFixed(2)}</div><div class="label">Cacao LOCAL disponible (ton)</div></div>
+    </div>`;
+}
+
 function renderInventarioEmpacado(){
   const pendientes = DATA.baches.filter(b=>b.etapaIdx===7 && disponibleLV(b) > 0)
     .sort((a,b)=> new Date(b.horaInicioEtapa) - new Date(a.horaInicioEtapa));
@@ -538,26 +563,6 @@ function renderInventarioEmpacado(){
       <div class="op-meta">${b.liberado ? `Liberado por ${b.liberadoPor}` : 'Pendiente de liberación (Administrador)'}</div>
     </div>`;
   }).join('') : '<div class="empty">No hay baches empacados pendientes de lote de venta.</div>';
-}
-
-function renderLotesHistorial(){
-  const hist = document.getElementById('lv-history');
-  const lotesOrdenados = [...DATA.lotes].reverse();
-  hist.innerHTML = lotesOrdenados.length ? lotesOrdenados.map(l=>{
-    const bultosDetalle = (l.detalleBultos||[]).map(d=>`${d.codigo}: ${d.bultos} sacos (${d.kg} kg)`).join(' · ');
-    const despachoInfo = l.despacho
-      ? `<div class="msg ok" style="margin-top:10px;">Despachado ${fmtDateTime(new Date(l.despacho.fecha))} · Encargado: ${l.despacho.encargado} · Remisión ${l.despacho.remision} · Transporta: ${l.despacho.empresa}</div>`
-      : `<div class="op-meta" style="margin-top:10px;">Pendiente de despacho — se autoriza desde Panel → Lotes de venta.</div>`;
-    return `
-      <div class="lv-history-item" style="flex-direction:column; align-items:stretch;">
-        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
-          <div><span class="tag" style="background:${DENOM[l.denom].color}">${DENOM[l.denom].label}</span> <span class="mono" style="margin-left:8px;">${l.codigo}</span></div>
-          <div class="op-meta">${(l.total_kg/1000).toFixed(2)} ton (G1 ${((l.total_g1||0)/1000).toFixed(2)}, G2 ${((l.total_g2||0)/1000).toFixed(2)}) · generado por ${l.generadoPor||'—'}</div>
-        </div>
-        <div class="op-meta" style="margin-top:6px;">${bultosDetalle}</div>
-        ${despachoInfo}
-      </div>`;
-  }).join('') : '<div class="empty">Aún no se han generado lotes de venta.</div>';
 }
 
 /* ---------- DESPACHOS (lotes de venta ya despachados) ---------- */
@@ -588,15 +593,14 @@ function renderDespachosTab(){
     </div>`).join('') : '<div class="empty">No hay lotes despachados con estos filtros.</div>';
 }
 
-function exportarDespachosCSV(){
+function exportarDespachosExcel(){
   const lotes = lotesDespachadosFiltrados();
-  const cols = ['codigo_lv','denominacion','total_kg','baches','fecha_despacho','encargado','remision','empresa','autorizado_por'];
+  const cols = ['Código LV','Denominación','Total kg','Baches','Fecha despacho','Encargado','Remisión','Empresa','Autorizado por'];
   const filas = lotes.map(l=>[
-    l.codigo, l.denom, l.total_kg, (l.baches||[]).join(' '),
+    l.codigo, DENOM[l.denom].label, l.total_kg, (l.baches||[]).join(' '),
     l.despacho.fecha.slice(0,10), l.despacho.encargado, l.despacho.remision, l.despacho.empresa, l.despacho.autorizadoPor || ''
   ]);
-  const csv = [cols.join(',')].concat(filas.map(f=>f.map(csvEscape).join(','))).join('\n');
-  descargarArchivo('lotes-despachados.csv', csv, 'text/csv');
+  descargarExcel('lotes-despachados.xlsx', 'Despachos', cols, filas);
 }
 
 /* ---------- RENDER Y ARRANQUE DE ESTA PÁGINA ---------- */
@@ -615,7 +619,7 @@ function render(){
   renderInventarioEmpacado();
   renderInventarioSecundario();
   renderRemanenteG1();
-  renderLotesHistorial();
+  renderCacaoLocalTablero();
   renderDespachosTab();
 }
 
@@ -626,6 +630,7 @@ document.getElementById('trace-f-desde').addEventListener('change', render);
 document.getElementById('trace-f-hasta').addEventListener('change', render);
 document.getElementById('trace-f-area').addEventListener('change', render);
 document.getElementById('trace-f-despachados').addEventListener('change', render);
+document.getElementById('btn-export-trazabilidad').addEventListener('click', exportarTrazabilidadExcel);
 document.getElementById('dash-periodo').addEventListener('change', ()=>{
   const esPersonalizado = document.getElementById('dash-periodo').value === 'personalizado';
   document.getElementById('dash-desde-wrap').style.display = esPersonalizado ? 'flex' : 'none';
@@ -640,7 +645,7 @@ document.getElementById('btn-print-dashboard').addEventListener('click', imprimi
 document.getElementById('desp-f-denom').addEventListener('change', render);
 document.getElementById('desp-f-desde').addEventListener('change', render);
 document.getElementById('desp-f-hasta').addEventListener('change', render);
-document.getElementById('btn-export-despachos').addEventListener('click', exportarDespachosCSV);
+document.getElementById('btn-export-despachos').addEventListener('click', exportarDespachosExcel);
 document.getElementById('proy-dias').addEventListener('change', render);
 
 load();

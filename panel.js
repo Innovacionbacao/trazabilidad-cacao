@@ -167,10 +167,16 @@ async function liberarBache(codigo){
 function renderLiberacion(){
   const pendientes = DATA.baches.filter(b=>b.etapaIdx===7 && !b.liberado);
   const el = document.getElementById('admin-liberacion');
-  el.innerHTML = pendientes.length ? pendientes.map(b=>`
+  el.innerHTML = pendientes.length ? pendientes.map(b=>{
+    const basculasTxt = (b.basculas||[]).map(x=>`${x.numero} (${x.peso} kg)`).join(', ') || '—';
+    const convTxt = b.factorConversion!=null
+      ? ` · <span style="color:${(b.factorConversion<25||b.factorConversion>40)?'var(--warn)':'var(--ok)'}; font-weight:600;">% conversión: ${b.factorConversion}%</span>`
+      : '';
+    return `
     <div class="lv-history-item" style="flex-direction:column; align-items:stretch;">
       <div><span class="tag" style="background:${DENOM[b.denom].color}">${DENOM[b.denom].label}</span> <span class="mono" style="margin-left:8px;">${b.codigo}</span></div>
-      <div class="op-meta">${b.peso_final} kg secos de grado 1 (G2 ${b.peso_g2 ?? 0} kg e impurezas ${b.peso_impurezas ?? 0} kg ya en inventario común)</div>
+      <div class="op-meta">Fecha de recepción: ${b.fecha} · Peso fresco: ${b.peso_fresco} kg · Básculas: ${basculasTxt}</div>
+      <div class="op-meta">Empacado: ${b.bultos ?? 0} bultos (${b.peso_final} kg) · Remanente recibido ${b.remanenteRecibido ?? 0} kg / resultante ${b.remanenteResultante ?? 0} kg · G2 ${b.peso_g2 ?? 0} kg · Impurezas ${b.peso_impurezas ?? 0} kg${convTxt}</div>
       <div class="op-preview" style="margin-top:6px;">Prueba de corte (muestra de 50 granos)</div>
       <div class="row" style="display:flex; gap:10px; flex-wrap:wrap;">
         <div class="field" style="flex:1; min-width:120px; margin-bottom:0;"><label>Granos marrones</label><input type="number" id="lib-gm-${b.codigo}" min="0" max="50" step="1"></div>
@@ -179,8 +185,48 @@ function renderLiberacion(){
         <div class="field" style="flex:1; min-width:120px; margin-bottom:0;"><label>Moho o pizarra</label><input type="number" id="lib-gmoho-${b.codigo}" min="0" max="50" step="1"></div>
       </div>
       <div id="lib-msg-${b.codigo}"></div>
-      <button onclick="liberarBache('${b.codigo}')" style="margin-top:8px;">Liberar para despacho</button>
-    </div>`).join('') : '<div class="empty">No hay baches pendientes de liberación.</div>';
+      <div style="display:flex; gap:10px; margin-top:8px;">
+        <button onclick="liberarBache('${b.codigo}')">Liberar para despacho</button>
+        <button class="secondary" onclick="retrocederDesdeAlmacenado('${b.codigo}')">↩ Devolver a Empaque</button>
+      </div>
+    </div>`;
+  }).join('') : '<div class="empty">No hay baches pendientes de liberación.</div>';
+}
+
+async function retrocederDesdeAlmacenado(codigo){
+  const nombre = getAdminNombre();
+  const msg = document.getElementById('lib-msg-'+codigo);
+  if(!nombre){
+    msg.innerHTML = '<div class="msg err">Ingresa el nombre del jefe de producción arriba antes de devolver el bache.</div>';
+    return;
+  }
+  const b = DATA.baches.find(x=>x.codigo===codigo);
+  if(!b.historial.length){
+    msg.innerHTML = '<div class="msg err">Este bache no tiene historial previo al cual devolver.</div>';
+    return;
+  }
+  if(!confirm(`¿Confirmas devolver el bache ${codigo} a Empaque? Esto deshace el empaque registrado (bultos, remanente, G2, impurezas y prueba de corte si la hay).`)) return;
+
+  let entry = b.historial.pop();
+  if(entry && entry.etapaNombre === 'Despulpado'){
+    const entryReal = b.historial.pop();
+    if(entryReal) entry = entryReal;
+  }
+  if(!entry) return;
+
+  if(b.contadoEnPoolG2){
+    DATA.inventarioSecundario.grado2 -= (b.peso_g2||0);
+    DATA.inventarioSecundario.impurezas -= (b.peso_impurezas||0);
+    DATA.remanenteG1[b.denom] = b.remanenteRecibido || 0;
+  }
+  b.peso_g1 = null; b.peso_g2 = null; b.peso_impurezas = null; b.peso_final = null; b.liberado = false;
+  b.bultos = null; b.remanenteRecibido = null; b.remanenteResultante = null; b.pruebaCorte = null; b.factorConversion = null;
+  b.contadoEnPoolG2 = false;
+  b.etapaIdx = entry.etapaIdx;
+  b.horaInicioEtapa = entry.horaInicio;
+  registrarMovimiento('Retroceso de etapa (desde liberación)', `Bache ${codigo}: vuelve a ${STAGES[b.etapaIdx]}`, nombre);
+  await save();
+  render();
 }
 
 /* ---------- LOTES DE VENTA (generación) ---------- */
@@ -296,6 +342,32 @@ function renderLotesDespacho(){
       <div id="desp-msg-${l.codigo}"></div>
       <button onclick="despacharLote('${l.codigo}')" style="margin-top:10px;">Marcar como despachado</button>
     </div>`).join('') : '<div class="empty">No hay lotes pendientes de despacho.</div>';
+}
+
+function renderCacaoLocalPanel(){
+  document.getElementById('cacao-local-resumen').innerHTML = `
+    <div class="dash-grid">
+      <div class="dash-card"><div class="n">${(DATA.cacaoLocal.total||0).toFixed(1)}</div><div class="label">Cacao LOCAL disponible (kg)</div></div>
+    </div>`;
+}
+
+async function despacharCacaoLocal(){
+  const nombre = getAdminNombre();
+  const msg = document.getElementById('desp-local-msg');
+  if(!nombre){
+    msg.innerHTML = '<div class="msg err">Ingresa el nombre del jefe de producción arriba antes de despachar.</div>';
+    return;
+  }
+  const cant = parseFloat(document.getElementById('desp-local-cantidad').value) || 0;
+  if(cant<=0){ msg.innerHTML = '<div class="msg err">Ingresa una cantidad a despachar.</div>'; return; }
+  if(cant > (DATA.cacaoLocal.total||0) + 0.01){ msg.innerHTML = '<div class="msg err">No hay suficiente cacao LOCAL disponible.</div>'; return; }
+  if(!confirm(`¿Confirmas despachar ${cant} kg de cacao LOCAL, autorizado por ${nombre}?`)) return;
+  DATA.cacaoLocal.total -= cant;
+  registrarMovimiento('Despacho de cacao LOCAL', `${cant} kg`, nombre);
+  await save();
+  document.getElementById('desp-local-cantidad').value = '';
+  msg.innerHTML = '<div class="msg ok">Despacho registrado.</div>';
+  render();
 }
 
 function renderInventarioSecundario(){
@@ -431,7 +503,7 @@ function restaurarBackup(ev){
         baches:[], lotes:[], lvConsecutivo:0,
         mapaMaestro:DATA.mapaMaestro, maestroConversion:DATA.maestroConversion,
         capacidadMaestro:DATA.capacidadMaestro, inventarioSecundario:DATA.inventarioSecundario,
-        pesoBulto:DATA.pesoBulto, remanenteG1:DATA.remanenteG1,
+        pesoBulto:DATA.pesoBulto, remanenteG1:DATA.remanenteG1, cacaoLocal:DATA.cacaoLocal,
         movimientos:[]
       }, parsed);
       await save();
@@ -571,6 +643,7 @@ function cargarBacheParaEditar(){
       ${(b.lvAsignaciones||[]).length ? ` · Lotes: ${b.lvAsignaciones.map(a=>`${a.lv} (${a.kg} kg)`).join(', ')}` : ''}
       ${b.volteos && b.volteos.length ? ` · Volteos en F. aeróbica: ${b.volteos.length}` : ''}
       ${b.bultos!=null ? ` · Bultos: ${b.bultos} · Remanente recibido: ${b.remanenteRecibido ?? 0} kg · Remanente resultante: ${b.remanenteResultante ?? 0} kg` : ''}
+      ${b.factorConversion!=null ? ` · <span style="color:${(b.factorConversion<25||b.factorConversion>40)?'var(--warn)':'var(--ok)'}; font-weight:600;">% conversión: ${b.factorConversion}%</span>` : ''}
       ${b.pruebaCorte ? ` · Prueba de corte: <b>${b.pruebaCorte.resultado}</b> (marrones ${b.pruebaCorte.granosMarrones}, marrones violeta ${b.pruebaCorte.granosMarronesVioleta}, violetas ${b.pruebaCorte.granosVioletas}, moho ${b.pruebaCorte.granosMoho} de 50 — moho ${b.pruebaCorte.pctMoho}%, marrones+violeta ${b.pruebaCorte.pctMarrones}%)` : ''}
     </div>
     <div id="edit-msg"></div>
@@ -659,6 +732,7 @@ function render(){
   renderLiberacion();
   renderLotesPool();
   renderLotesDespacho();
+  renderCacaoLocalPanel();
   renderInventarioSecundario();
   renderMovimientos();
   renderListaCodigosEditar();
@@ -671,6 +745,7 @@ document.getElementById('btn-guardar-conversion').addEventListener('click', guar
 document.getElementById('btn-guardar-capacidad').addEventListener('click', guardarCapacidadMaestro);
 document.getElementById('btn-edit-cargar').addEventListener('click', cargarBacheParaEditar);
 document.getElementById('btn-despachar-secundario').addEventListener('click', despacharInventarioSecundario);
+document.getElementById('btn-despachar-local').addEventListener('click', despacharCacaoLocal);
 document.getElementById('btn-recalcular-secundario').addEventListener('click', recalcularInventarioSecundario);
 document.getElementById('btn-backup').addEventListener('click', descargarBackup);
 document.getElementById('btn-export-baches').addEventListener('click', exportarBachesCSV);

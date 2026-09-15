@@ -319,3 +319,19 @@ Nota: al revertir con "Retroceder etapa" un bache que ya estaba en Almacenado, a
 - **Prueba de corte movida**: ya no se pide al empacar (Captura → Operación). Ahora se hace en **Panel → Seguimiento**, al momento de liberar el bache para lote de venta — el jefe de producción cuenta los 50 granos justo ahí y el sistema calcula Aprobado/Rechazado. Si da Rechazado, pide una confirmación extra antes de liberar de todas formas.
 - **Error "Cannot read properties of undefined (reading 'length')"**: quedó resuelto en la ronda anterior (baches antiguos sin el campo `volteos`); si lo seguías viendo, era porque probabas con un zip anterior a ese arreglo — este ya lo trae.
 - **Recordatorio de dónde vive el remanente de grado 1**: `DATA.remanenteG1` (uno por denominación), visible de solo lectura en Tablero → Inventario. Se actualiza automáticamente al empacar, no requiere ninguna acción manual de despacho.
+
+## 18. Cambios de esta ronda
+
+1. **"Lotes de venta generados" quitado de Tablero → Inventario** — ya se ve en Panel (pendientes) y en la pestaña Despachos (despachados), así que aquí sobraba.
+
+2. **Corregido el desborde de la tabla de proyección a 15 días** — ahora tiene scroll horizontal propio (como ya tenía la tabla de capacidad), sin empujar toda la página fuera de la pantalla.
+
+3. **Cacao LOCAL**: nuevo inventario aparte que no pasa por ningún proceso. Se registra la entrada en Captura → Registro (peso + nota opcional), y se despacha desde Panel → Lotes de venta (autorizado por el jefe de producción). Se ve en Tablero → Inventario.
+
+4. **Baches parciales al retroceder**: cuando un bache se divide (traslado parcial, código `-P1`, `-P2`...) y luego se retrocede uno de los pedazos, **no se vuelve a unir automáticamente** con el resto — queda como un bache independiente en la etapa anterior. Lo dejamos así (como preguntaste) porque re-unir automáticamente es riesgoso: cada pedazo pudo haber seguido caminos distintos (diferentes horas, posibles cambios), y forzar la unión podría mezclar mal los pesos o el historial. Si necesitas juntarlos, hazlo manualmente desde Panel → Editar baches.
+
+5. y 6. **Exportación a Excel real** (no CSV) para Despachos (Tablero → Despachos) y para Trazabilidad filtrada (Tablero → Trazabilidad), usando la librería SheetJS incluida directamente en el proyecto (`xlsx.full.min.js`, sin depender de un CDN externo).
+
+7. **Alarma de % de conversión**: al empacar un bache se guarda el % de conversión (seco/fresco), y se muestra resaltado en Trazabilidad, Editar baches y Liberación — verde si está en un rango típico (25%-40%), en color de advertencia si se acerca a los bordes del rango permitido (20%-45%), para tenerlo presente aunque ya haya pasado la validación.
+
+8. **Liberación de producto (Panel → Seguimiento)** ahora muestra la información completa del bache (fecha, peso fresco, básculas, bultos, remanente recibido/resultante, G2, impurezas, % de conversión) además de los campos de la prueba de corte, y agrega un botón "↩ Devolver a Empaque" para corregir un bache liberado por error antes de asignarlo a un lote de venta.

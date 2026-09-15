@@ -73,6 +73,9 @@ let DATA = {
   // denominación, para consolidarlo en un bulto completo.
   pesoBulto: 69,
   remanenteG1: { ccn51: 0, aromatico: 0, upia: 0 },
+  // Cacao LOCAL: entra directo al inventario final, sin pasar por ningún
+  // proceso (recepción, fermentación, secado, etc.). Es un inventario aparte.
+  cacaoLocal: { total: 0, movimientos: [] },
   movimientos: [],
   adminNombre: ''
 };
@@ -214,6 +217,20 @@ function descargarArchivo(nombre, contenido, tipo){
   a.href = url; a.download = nombre;
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
+}
+
+// Exporta un arreglo de arreglos (filas) a un archivo .xlsx real usando SheetJS
+// (cargado por <script> en la página). encabezados es la primera fila.
+function descargarExcel(nombreArchivo, nombreHoja, encabezados, filas){
+  if(typeof XLSX === 'undefined'){
+    alert('No se pudo cargar el generador de Excel (sin conexión a internet). Intenta de nuevo cuando tengas señal.');
+    return;
+  }
+  const datos = [encabezados, ...filas];
+  const hoja = XLSX.utils.aoa_to_sheet(datos);
+  const libro = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(libro, hoja, nombreHoja.slice(0,31));
+  XLSX.writeFile(libro, nombreArchivo);
 }
 
 function crearBacheParcial(original, cantidad){

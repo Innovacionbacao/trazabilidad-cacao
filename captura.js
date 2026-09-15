@@ -49,6 +49,33 @@ function renderResumenHoyAyer(){
   `;
 }
 
+function renderCacaoLocal(){
+  document.getElementById('cacao-local-total').textContent = (DATA.cacaoLocal.total||0).toFixed(2);
+}
+
+async function registrarCacaoLocal(){
+  const peso = parseFloat(document.getElementById('local-peso').value) || 0;
+  const nota = document.getElementById('local-nota').value.trim();
+  const msg = document.getElementById('local-msg');
+  const operario = getOperario();
+  if(!operario){
+    msg.innerHTML = '<div class="msg err">Escribe tu nombre en "Operario" arriba antes de registrar.</div>';
+    return;
+  }
+  if(peso <= 0){
+    msg.innerHTML = '<div class="msg err">Ingresa un peso mayor a 0.</div>';
+    return;
+  }
+  DATA.cacaoLocal.total += peso;
+  DATA.cacaoLocal.movimientos.push({ fecha: new Date().toISOString(), peso, nota, operario });
+  registrarMovimiento('Entrada de cacao LOCAL', `${peso} kg${nota ? ' — ' + nota : ''}`, operario);
+  document.getElementById('local-peso').value = '';
+  document.getElementById('local-nota').value = '';
+  msg.innerHTML = '<div class="msg ok">Entrada registrada.</div>';
+  await save();
+  render();
+}
+
 async function registrarBache(){
   const fh = document.getElementById('f-fecha').value;
   const denom = document.getElementById('f-denom').value;
@@ -269,6 +296,7 @@ async function registrarEmpaque(codigo){
   // inventario común de bodega.
   b.peso_g1 = bultosKg;
   b.peso_final = bultosKg;
+  b.factorConversion = Math.round(factor*1000)/10;
   DATA.remanenteG1[b.denom] = remanenteNuevo;
   DATA.inventarioSecundario.grado2 += g2;
   DATA.inventarioSecundario.impurezas += imp;
@@ -334,7 +362,7 @@ async function retrocederEtapa(codigo){
       DATA.remanenteG1[b.denom] = b.remanenteRecibido || 0;
     }
     b.peso_g1 = null; b.peso_g2 = null; b.peso_impurezas = null; b.peso_final = null; b.liberado = false;
-    b.bultos = null; b.remanenteRecibido = null; b.remanenteResultante = null; b.pruebaCorte = null;
+    b.bultos = null; b.remanenteRecibido = null; b.remanenteResultante = null; b.pruebaCorte = null; b.factorConversion = null;
     b.contadoEnPoolG2 = false;
   }
   if(entry.etapaIdx === 5){
@@ -524,6 +552,7 @@ function render(){
   actualizarEncabezado();
   updateCodigoPreview();
   renderResumenHoyAyer();
+  renderCacaoLocal();
   renderFlujo();
   renderCapTable();
   renderOpDashGrid();
@@ -536,6 +565,7 @@ document.getElementById('f-denom').addEventListener('change', updateCodigoPrevie
 document.getElementById('f-peso').addEventListener('input', updateCodigoPreview);
 document.getElementById('f-directo').addEventListener('change', updateCodigoPreview);
 document.getElementById('btn-registrar').addEventListener('click', registrarBache);
+document.getElementById('btn-registrar-local').addEventListener('click', registrarCacaoLocal);
 document.getElementById('f-fecha').value = toLocalInputValue(new Date());
 
 /* ---------- Ventana inicial de acceso (operario + clave) ---------- */

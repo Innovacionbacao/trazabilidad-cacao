@@ -133,7 +133,7 @@
     <div id="proy-capacidad-wrap" style="overflow-x:auto; margin-bottom:28px;"></div>
 
     <p class="block-title" id="proy-titulo">Proyección de etapa por bache</p>
-    <div id="proy-wrap"></div>
+    <div id="proy-wrap" style="overflow-x:auto;"></div>
 
     <div class="section-gap">
       <p class="block-title">Proyección de bodega y sugerencia de despacho</p>
@@ -162,6 +162,7 @@
       <input type="checkbox" id="trace-f-despachados" style="width:auto;">
       <label for="trace-f-despachados" style="font-size:13px; color:var(--ink-dim);">Incluir baches ya despachados</label>
     </div>
+    <button class="secondary" id="btn-export-trazabilidad" style="margin-bottom:20px;">Exportar trazabilidad filtrada (Excel)</button>
     <p class="block-title">Historial completo por bache</p>
     <div class="op-list" id="trace-list"></div>
   </div>
@@ -169,11 +170,6 @@
   <div class="panel" id="panel-lotes">
     <p class="block-title">Empacado en bodega (pendiente de lote de venta)</p>
     <div class="lv-history" id="inventario-empacado"></div>
-
-    <div class="section-gap">
-      <p class="block-title">Lotes de venta generados</p>
-      <div class="lv-history" id="lv-history"></div>
-    </div>
 
     <div class="section-gap">
       <p class="block-title">Grado 2 e impurezas (inventario común, sin bache ni lote)</p>
@@ -186,12 +182,18 @@
       <div id="remanente-g1-resumen"></div>
       <p class="op-meta" style="margin-top:10px;">Se consolida automáticamente con el siguiente bache de esa denominación que se empaque.</p>
     </div>
+
+    <div class="section-gap">
+      <p class="block-title">Cacao LOCAL (inventario aparte, sin proceso)</p>
+      <div id="cacao-local-resumen"></div>
+      <p class="op-meta" style="margin-top:10px;">El despacho de este inventario se autoriza desde Panel → Lotes de venta.</p>
+    </div>
   </div>
 
   <div class="panel" id="panel-despachos">
     <div class="dash-header">
       <h2 class="dash-title">Lotes despachados</h2>
-      <div class="dash-actions"><button class="secondary" id="btn-export-despachos">Exportar tabla (CSV)</button></div>
+      <div class="dash-actions"><button class="secondary" id="btn-export-despachos">Exportar tabla (Excel)</button></div>
     </div>
     <div class="report-card">
       <p class="block-title">Filtros</p>
@@ -213,6 +215,7 @@
 
 </main>
 
+<script src="xlsx.full.min.js"></script>
 <script src="shared.js"></script>
 <script src="tablero.js"></script>
 </body>

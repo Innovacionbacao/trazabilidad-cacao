@@ -361,3 +361,17 @@ Nota: al revertir con "Retroceder etapa" un bache que ya estaba en Almacenado, a
 3. **Botón "Devolver a liberación" más visible**: en Panel → Lotes de venta, ahora aparece en su propia línea con texto completo, debajo de la información de cada bache liberado (antes era un botón pequeño dentro de la misma fila, fácil de pasar por alto).
 
 4. **Nuevo total en Inventario** ("Total real en bodega") al principio de la pestaña, calculado exactamente igual que el "Ton en bodega ahora" del Dashboard — sirve para comparar directamente. Si veías 41.12 en Dashboard y 41 en Inventario antes, probablemente estabas viendo una cifra distinta (como el remanente, que se muestra en kg con 1 decimal, no en toneladas); con este total nuevo puedes verificar que ambos coinciden exactamente.
+
+## 21. Rediseño aplicado al código real (Tablero y Panel)
+
+Se llevaron los 3 preliminares de diseño (Inventario, Dashboard/Proyección, Panel) al código real:
+
+**Tablero → Dashboard**: el KPI "en bodega ahora" es el destacado (tarjeta oscura). Las 3 secciones repetidas de inventario (en proceso / en bodega / despachado) se reemplazaron por un solo "Flujo de producción" (embudo de 4 pasos: fresco → proceso → bodega → despachado), con el detalle por denominación debajo. El cacao LOCAL y grado 2/impurezas ya no se mezclan aquí — viven solo en Inventario.
+
+**Tablero → Proyección**: la tabla de saturación por etapa ahora es un mapa de calor con **porcentajes de ocupación** (no toneladas), coloreado verde/ámbar/rojo según qué tan llena está cada etapa. La tabla por bache lleva un borde de color por denominación. El gráfico de bodega también usa el mismo semáforo de colores.
+
+**Tablero → Inventario**: hero con el total en bodega + barra de proporciones, embudo (por liberar → liberado → en lote), tarjetas colapsables por estado (toca para expandir), y "otros inventarios" (grado 2, impurezas, remanente, cacao LOCAL) agrupados aparte con tratamiento visual distinto.
+
+**Panel**: pestañas reordenadas — Seguimiento, Despachos productos (antes "Lotes de venta"), Editar baches, Movimientos primero (uso diario); Configuración y Datos al final (uso ocasional), con una barra de identificación fija arriba. Seguimiento muestra primero la cola de liberación (tarjetas colapsables con la prueba de corte) y despliega la lista de tiempo por etapa colapsada, agrupada, con excedidos siempre visibles arriba. Despachos productos separa Grado 2 e Impurezas en tarjetas propias y consolida el ciclo de Cacao LOCAL (secar → liberar → despachar) en una sola tarjeta. Configuración y Datos ahora son listas compactas tipo "ajustes", colapsadas por defecto.
+
+Todo funcionalmente probado de nuevo tras el rediseño (liberar con prueba de corte, generar y despachar lote, despachar grado 2/impurezas, ciclo completo de cacao LOCAL, devolver a liberación) — cero errores de consola en las 3 páginas.

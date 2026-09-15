@@ -229,88 +229,73 @@ function renderDenomDonut(){
   }).join(', ');
   const legend = Object.keys(DENOM).map(k=>{
     const pct = totals[k]/total*100;
-    return `<div style="display:flex; align-items:center; gap:8px; font-size:13px; margin-bottom:6px;">
-      <span style="width:11px; height:11px; border-radius:2px; background:${DENOM[k].color}; display:inline-block;"></span>
-      <span>${DENOM[k].label}</span>
-      <span class="op-meta" style="margin-left:auto;">${pct.toFixed(1)}% · ${(totals[k]/1000).toFixed(2)} ton</span>
+    return `<div class="row">
+      <div class="label-line"><i class="dot" style="background:${DENOM[k].color};"></i>${DENOM[k].label}</div>
+      <span class="pct">${pct.toFixed(1)}% · ${(totals[k]/1000).toFixed(2)} ton</span>
     </div>`;
   }).join('');
   el.innerHTML = `
-    <div style="display:flex; gap:24px; align-items:center; flex-wrap:wrap;">
+    <div class="donut-row">
       <div style="position:relative; width:110px; height:110px; flex-shrink:0;">
         <div style="width:110px; height:110px; border-radius:50%; background:conic-gradient(${stops});"></div>
         <div style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:64px; height:64px; border-radius:50%; background:var(--bg); display:flex; align-items:center; justify-content:center; text-align:center;">
           <span style="font-size:11px; color:var(--ink-dim); font-family:'IBM Plex Mono',monospace;">${(total/1000).toFixed(2)}<br>ton</span>
         </div>
       </div>
-      <div style="flex:1; min-width:200px;">${legend}</div>
+      <div class="donut-legend">${legend}</div>
     </div>`;
 }
 
-function renderDespachadoResumen(){
+function renderFlujoProduccion(){
   const denomF = document.getElementById('dash-denom').value;
   const rango = calcularRangoPeriodo();
+  const despachadosSet = setDespachados();
 
-  const despachados = DATA.lotes.filter(l=>l.despacho).filter(l=>{
+  // 1) Fresco ingresado en el periodo
+  const periodo = filtrarPorRango(DATA.baches, rango).filter(b=> denomF==='todas' || b.denom===denomF);
+  const totalFresco = periodo.reduce((s,b)=>s+b.peso_fresco,0);
+
+  // 2) En proceso ahora (estimado), sin filtrar por periodo (es una foto del momento)
+  const enProceso = DATA.baches.filter(b=>ACTIVE_INDICES.includes(b.etapaIdx) && !despachadosSet.has(b.codigo) && (denomF==='todas' || b.denom===denomF));
+  let totalProcesoEq = 0;
+  const porDenomProceso = {ccn51:0, aromatico:0, upia:0};
+  enProceso.forEach(b=>{ const eq = b.peso_fresco*factorConversionActual(); totalProcesoEq += eq; porDenomProceso[b.denom]+=eq; });
+
+  // 3) En bodega ahora (real), sin filtrar por periodo
+  const enBodega = DATA.baches.filter(b=>b.etapaIdx===7 && kgEnBodegaSinDespachar(b)>0 && (denomF==='todas' || b.denom===denomF));
+  let totalBodega = 0;
+  const porDenomBodega = {ccn51:0, aromatico:0, upia:0};
+  enBodega.forEach(b=>{ const kg = kgEnBodegaSinDespachar(b); totalBodega += kg; porDenomBodega[b.denom]+=kg; });
+
+  // 4) Despachado en el periodo
+  const despachadosLotes = DATA.lotes.filter(l=>l.despacho).filter(l=>{
     if(denomF!=='todas' && l.denom!==denomF) return false;
     const f = l.despacho.fecha.slice(0,10);
     return f >= rango.desde && f <= rango.hasta;
   });
+  const totalDespachado = despachadosLotes.reduce((s,l)=>s+l.total_kg,0);
 
-  const totalKg = despachados.reduce((s,l)=>s+l.total_kg,0);
-  const porDenom = {ccn51:0, aromatico:0, upia:0};
-  despachados.forEach(l=>{ porDenom[l.denom] += l.total_kg; });
+  const max = Math.max(totalFresco, totalProcesoEq, totalBodega, totalDespachado, 1);
+  const flex = (v) => Math.max(v/max, 0.12).toFixed(3);
 
-  document.getElementById('inventario-despachado').innerHTML = despachados.length ? `
-    <div class="dash-grid">
-      <div class="dash-card"><div class="n">${(totalKg/1000).toFixed(2)}</div><div class="label">Ton despachadas (periodo)</div></div>
-      <div class="dash-card"><div class="n">${despachados.length}</div><div class="label">Lotes despachados</div></div>
-      <div class="dash-card"><div class="n">${(porDenom.ccn51/1000).toFixed(2)}</div><div class="label">CCN-51 (ton)</div></div>
-      <div class="dash-card"><div class="n">${(porDenom.aromatico/1000).toFixed(2)}</div><div class="label">Aromático (ton)</div></div>
-      <div class="dash-card"><div class="n">${(porDenom.upia/1000).toFixed(2)}</div><div class="label">Upia (ton)</div></div>
-    </div>` : '<div class="empty">Sin lotes despachados en el periodo seleccionado.</div>';
-}
-
-function renderInventarioProceso(){
-  const despachados = setDespachados();
-
-  // En proceso: aún no llega a Almacenado. Se muestra en equivalente seco (estimado según el maestro de conversión).
-  const enProceso = DATA.baches.filter(b=>ACTIVE_INDICES.includes(b.etapaIdx) && !despachados.has(b.codigo));
-  let totalEquiv = 0;
-  const porDenomProceso = {ccn51:0, aromatico:0, upia:0};
-  enProceso.forEach(b=>{
-    const eq = b.peso_fresco * factorConversionActual();
-    totalEquiv += eq;
-    porDenomProceso[b.denom] += eq;
-  });
-
-  document.getElementById('inventario-proceso').innerHTML = `
-    <div class="dash-grid">
-      <div class="dash-card"><div class="n">${(totalEquiv/1000).toFixed(2)}</div><div class="label">Ton equiv. seco en proceso (estimado)</div></div>
-      <div class="dash-card"><div class="n">${(porDenomProceso.ccn51/1000).toFixed(2)}</div><div class="label">CCN-51 (ton eq. seco)</div></div>
-      <div class="dash-card"><div class="n">${(porDenomProceso.aromatico/1000).toFixed(2)}</div><div class="label">Aromático (ton eq. seco)</div></div>
-      <div class="dash-card"><div class="n">${(porDenomProceso.upia/1000).toFixed(2)}</div><div class="label">Upia (ton eq. seco)</div></div>
-    </div>`;
-
-  // En bodega: ya empacado y pesado, cifra real (no estimada). Se descuenta lo ya despachado (parcial o total).
-  // Esto es solo grado 1 (el que sigue el circuito de lote de venta); grado 2
-  // e impurezas viven en su propio inventario común, independiente del bache.
-  const enBodega = DATA.baches.filter(b=>b.etapaIdx===7 && kgEnBodegaSinDespachar(b) > 0);
-  const totalBodega = enBodega.reduce((s,b)=>s+kgEnBodegaSinDespachar(b),0);
-  const porDenomBodega = {ccn51:0, aromatico:0, upia:0};
-  enBodega.forEach(b=>{ porDenomBodega[b.denom] += kgEnBodegaSinDespachar(b); });
-  const totalG2 = DATA.inventarioSecundario.grado2;
-  const totalImp = DATA.inventarioSecundario.impurezas;
-
-  document.getElementById('inventario-bodega').innerHTML = `
-    <div class="dash-grid">
-      <div class="dash-card"><div class="n">${(totalBodega/1000).toFixed(2)}</div><div class="label">Ton reales en bodega / ${DATA.capacidadMaestro.almacenTotalTon} ton cap.</div></div>
-      <div class="dash-card"><div class="n">${(porDenomBodega.ccn51/1000).toFixed(2)}</div><div class="label">CCN-51 (ton)</div></div>
-      <div class="dash-card"><div class="n">${(porDenomBodega.aromatico/1000).toFixed(2)}</div><div class="label">Aromático (ton)</div></div>
-      <div class="dash-card"><div class="n">${(porDenomBodega.upia/1000).toFixed(2)}</div><div class="label">Upia (ton)</div></div>
-      <div class="dash-card"><div class="n">${(totalG2/1000).toFixed(2)}</div><div class="label">Grado 2 en inventario común (ton)</div></div>
-      <div class="dash-card"><div class="n">${(totalImp/1000).toFixed(2)}</div><div class="label">Impurezas en inventario común (ton)</div></div>
-    </div>`;
+  document.getElementById('flujo-produccion').innerHTML = `
+    <div class="pipe-wrap">
+      <div class="pipe">
+        <div class="pipe-seg" style="flex:${flex(totalFresco)}; background:var(--amber-1); color:#3d2c12;"><span class="n">${(totalFresco/1000).toFixed(2)} ton</span><span class="l">Fresco ingresado</span></div>
+        <div class="pipe-arrow">›</div>
+        <div class="pipe-seg" style="flex:${flex(totalProcesoEq)}; background:var(--amber-2); color:#3d2c12;"><span class="n">${(totalProcesoEq/1000).toFixed(2)} ton</span><span class="l">En proceso (estimado)</span></div>
+        <div class="pipe-arrow">›</div>
+        <div class="pipe-seg" style="flex:${flex(totalBodega)}; background:var(--amber-3);"><span class="n">${(totalBodega/1000).toFixed(2)} ton</span><span class="l">En bodega (real)</span></div>
+        <div class="pipe-arrow">›</div>
+        <div class="pipe-seg" style="flex:${flex(totalDespachado)}; background:var(--amber);"><span class="n">${(totalDespachado/1000).toFixed(2)} ton</span><span class="l">Despachado (periodo)</span></div>
+      </div>
+    </div>
+    <div class="pipe-detail">
+      <span>● CCN-51 · proceso ${(porDenomProceso.ccn51/1000).toFixed(2)} · bodega ${(porDenomBodega.ccn51/1000).toFixed(2)}</span>
+      <span>● Aromático · proceso ${(porDenomProceso.aromatico/1000).toFixed(2)} · bodega ${(porDenomBodega.aromatico/1000).toFixed(2)}</span>
+      <span>● Upia · proceso ${(porDenomProceso.upia/1000).toFixed(2)} · bodega ${(porDenomBodega.upia/1000).toFixed(2)}</span>
+    </div>
+    <p class="section-hint" style="margin:10px 0 0;">El detalle de por-liberar / liberado / en-lote / despachado vive en la pestaña Inventario — aquí solo el resumen del periodo.</p>`;
 }
 
 const PERIODO_LABELS = {
@@ -329,10 +314,10 @@ function renderDashboardKPIs(){
   const enBodega = DATA.baches.filter(b=>b.etapaIdx===7).reduce((s,b)=>s+kgEnBodegaSinDespachar(b),0);
 
   document.getElementById('dash-kpis').innerHTML = `
+    <div class="hero-kpi"><div class="n">${(enBodega/1000).toFixed(2)} <span style="font-size:15px;">ton</span></div><div class="label">En bodega ahora mismo</div></div>
     <div class="dash-card kpi"><div class="n">${(totalFresco/1000).toFixed(2)}</div><div class="label">Ton fresco ingresado (periodo)</div></div>
     <div class="dash-card kpi"><div class="n">${(totalSeco/1000).toFixed(2)}</div><div class="label">Ton seco procesado (periodo)</div></div>
     <div class="dash-card kpi"><div class="n">${conversion!=null ? conversion.toFixed(1)+'%' : '—'}</div><div class="label">% conversión real (seco / fresco × 100)${conversion==null ? ' — aún sin cacao seco en el periodo' : ''}</div></div>
-    <div class="dash-card kpi"><div class="n">${(enBodega/1000).toFixed(2)}</div><div class="label">Ton en bodega ahora</div></div>
   `;
 
   const periodoSel = document.getElementById('dash-periodo').value;
@@ -391,9 +376,15 @@ function proyeccionCapacidadEtapas(dias){
   return resultado;
 }
 
+function colorSaturacion(pct){
+  if(pct >= 100) return '#b23a2e';
+  if(pct >= 70) return '#c99a51';
+  return '#2f7a3d';
+}
+
 function renderProyeccionCapacidad(){
   const dias = parseInt(document.getElementById('proy-dias').value, 10) || 7;
-  document.getElementById('proy-capacidad-titulo').textContent = `Proyección de saturación de capacidad por etapa (próximos ${dias} días)`;
+  document.getElementById('proy-capacidad-titulo').textContent = `Saturación de capacidad por etapa (próximos ${dias} días)`;
   const ocupacion = proyeccionCapacidadEtapas(dias);
   const hoy = new Date();
 
@@ -409,19 +400,27 @@ function renderProyeccionCapacidad(){
     const capKg = cap ? cap.total*cap.capKg : null;
     let primeraSaturacion = -1;
     const cells = ocupacion[idx].map((kg,d)=>{
-      const over = capKg!=null && kg>capKg;
+      const pct = capKg!=null ? (kg/capKg*100) : null;
+      const over = pct!=null && pct>=100;
       if(over && primeraSaturacion===-1) primeraSaturacion = d;
-      const texto = capKg!=null ? `${(kg/1000).toFixed(2)}/${(capKg/1000).toFixed(0)}` : `${(kg/1000).toFixed(2)}`;
-      return `<td class="${over?'proy-saturado':''}">${texto}</td>`;
+      if(pct==null) return `<td class="cell" style="background:var(--panel-2); color:var(--ink-dim);">${(kg/1000).toFixed(2)}</td>`;
+      return `<td class="cell" style="background:${colorSaturacion(pct)};" title="${(kg/1000).toFixed(2)}/${(capKg/1000).toFixed(0)} ton">${pct.toFixed(0)}%</td>`;
     }).join('');
     if(primeraSaturacion>=0){
       const dt = new Date(hoy); dt.setDate(dt.getDate()+primeraSaturacion);
-      alertas.push(`<div class="msg err">${STAGES[idx]}: se proyecta saturación el ${fmtDate(dt)} (${(ocupacion[idx][primeraSaturacion]/1000).toFixed(2)}/${(capKg/1000).toFixed(0)} ton) — la producción de ese día podría retrasarse.</div>`);
+      const pctSat = (ocupacion[idx][primeraSaturacion]/capKg*100).toFixed(0);
+      alertas.push(`<div class="report-card" style="border-left:3px solid var(--warn); margin-bottom:12px;"><p class="block-title" style="color:var(--warn); margin-bottom:6px;">Alerta de saturación</p><p style="margin:0; font-size:13px;">${STAGES[idx]}: se proyecta saturación el <b>${fmtDate(dt)}</b> (${pctSat}% · ${(ocupacion[idx][primeraSaturacion]/1000).toFixed(2)}/${(capKg/1000).toFixed(0)} ton) — la producción de ese día podría retrasarse.</p></div>`);
     }
-    return `<tr><td class="codigo-col">${STAGES[idx]} (ton)</td>${cells}</tr>`;
+    return `<tr><td>${STAGES[idx]}</td>${cells}</tr>`;
   }).join('');
 
-  document.getElementById('proy-capacidad-wrap').innerHTML = `<table class="proy"><thead><tr><th>Etapa</th>${headerCols}</tr></thead><tbody>${rows}</tbody></table>`;
+  document.getElementById('proy-capacidad-wrap').innerHTML = `
+    <div class="heat-wrap"><table class="heat"><thead><tr><th>Etapa</th>${headerCols}</tr></thead><tbody>${rows}</tbody></table></div>
+    <div class="heat-legend">
+      <span><i style="background:#2f7a3d;"></i>holgado (&lt;70%)</span>
+      <span><i style="background:#c99a51;"></i>ajustado (70-99%)</span>
+      <span><i style="background:#b23a2e;"></i>saturado (100%+)</span>
+    </div>`;
   document.getElementById('proy-capacidad-alertas').innerHTML = alertas.length
     ? alertas.join('')
     : `<div class="msg ok">No se proyecta saturación de capacidad en los próximos ${dias} días.</div>`;
@@ -469,7 +468,7 @@ function renderProyeccion(){
     const proy = computeProyeccion(b, dias);
     const denomInfo = DENOM[b.denom];
     const cells = proy.map(p=>`<td class="${p==='Almacenado'?'proy-almacenado':''}">${p}</td>`).join('');
-    return `<tr><td class="codigo-col"><span class="tag" style="background:${denomInfo.color}">${denomInfo.label}</span> ${b.codigo}</td>${cells}</tr>`;
+    return `<tr style="border-left:3px solid ${denomInfo.color};"><td class="codigo-col"><span class="tag" style="background:${denomInfo.color}">${denomInfo.label}</span> ${b.codigo}</td>${cells}</tr>`;
   }).join('');
   wrap.innerHTML = `<table class="proy"><thead><tr><th>Bache</th>${headerCols}</tr></thead><tbody>${rows}</tbody></table>`;
 }
@@ -514,15 +513,17 @@ function renderProyeccionBodega(){
     const h = (t.kg/max)*chartH;
     const x = startX + i*(boxW+gap);
     const y = chartH - h + topPad;
-    const over = t.kg > capKg;
+    const pctCap = (t.kg/capKg)*100;
+    const over = pctCap >= 100;
+    const colorBarra = colorSaturacion(pctCap);
     const tooltip = t.llegadas.length
       ? `Llegarían: ${t.llegadas.map(a=>`${a.codigo} (${(a.kg/1000).toFixed(2)}t)`).join(', ')}`
       : 'Sin llegadas proyectadas ese día';
     bars += `<g>
-      <title>${fmtDate(t.fecha)} · ${(t.kg/1000).toFixed(2)} ton acumuladas · ${tooltip}</title>
-      <rect x="${x}" y="${y}" width="${boxW}" height="${Math.max(h,1)}" rx="2" style="fill:${over?'var(--warn)':'var(--ok)'};"/>
+      <title>${fmtDate(t.fecha)} · ${(t.kg/1000).toFixed(2)} ton acumuladas (${pctCap.toFixed(0)}%) · ${tooltip}</title>
+      <rect x="${x}" y="${y}" width="${boxW}" height="${Math.max(h,1)}" rx="2" style="fill:${colorBarra};"/>
       <text x="${x+boxW/2}" y="${y-5}" text-anchor="middle" style="font-size:8.5px; fill:var(--ink); font-family:'IBM Plex Mono';">${(t.kg/1000).toFixed(2)}</text>
-      <text x="${x+boxW/2}" y="${chartH+topPad+16}" text-anchor="middle" style="font-size:9px; fill:var(--ink-dim); font-family:'Space Grotesk';">${t.fecha.getDate()}/${t.fecha.getMonth()+1}</text>
+      <text x="${x+boxW/2}" y="${chartH+topPad+16}" text-anchor="middle" style="font-size:9px; fill:var(--ink-dim); font-family:'Public Sans';">${t.fecha.getDate()}/${t.fecha.getMonth()+1}</text>
     </g>`;
   });
   const capY = chartH - (capKg/max)*chartH + topPad;
@@ -545,73 +546,105 @@ function renderProyeccionBodega(){
 /* ---------- LOTES DE VENTA ---------- */
 
 /* ---------- INVENTARIO (empacado pendiente + lotes de venta + despacho) ---------- */
-function renderInventarioSecundario(){
-  const g2 = DATA.inventarioSecundario.grado2;
-  const imp = DATA.inventarioSecundario.impurezas;
-  document.getElementById('inventario-secundario-resumen').innerHTML = `
-    <div class="dash-grid">
-      <div class="dash-card"><div class="n">${(g2/1000).toFixed(2)}</div><div class="label">Grado 2 disponible (ton)</div></div>
-      <div class="dash-card"><div class="n">${(imp/1000).toFixed(2)}</div><div class="label">Impurezas disponibles (ton)</div></div>
-    </div>`;
+let invStageAbierto = null;
+function toggleInvStage(id){
+  invStageAbierto = (invStageAbierto === id) ? null : id;
+  renderInventarioTab();
 }
 
-function renderRemanenteG1(){
-  const r = DATA.remanenteG1;
-  document.getElementById('remanente-g1-resumen').innerHTML = `
-    <div class="dash-grid">
-      <div class="dash-card"><div class="n">${(r.ccn51||0).toFixed(1)}</div><div class="label">CCN-51 (kg)</div></div>
-      <div class="dash-card"><div class="n">${(r.aromatico||0).toFixed(1)}</div><div class="label">Aromático (kg)</div></div>
-      <div class="dash-card"><div class="n">${(r.upia||0).toFixed(1)}</div><div class="label">Upia (kg)</div></div>
-    </div>`;
-}
-
-function renderCacaoLocalTablero(){
-  document.getElementById('cacao-local-resumen').innerHTML = `
-    <div class="dash-grid">
-      <div class="dash-card"><div class="n">${((DATA.cacaoLocal.total||0)/1000).toFixed(2)}</div><div class="label">Cacao LOCAL disponible (ton)</div></div>
-    </div>`;
-}
-
-function renderTotalBodega(){
-  const totalKg = DATA.baches.filter(b=>b.etapaIdx===7).reduce((s,b)=>s+kgEnBodegaSinDespachar(b),0);
-  document.getElementById('inventario-total-bodega').innerHTML = `
-    <div class="dash-grid">
-      <div class="dash-card kpi"><div class="n">${(totalKg/1000).toFixed(2)}</div><div class="label">Ton reales en bodega (grado 1, todos los estados)</div></div>
-    </div>`;
-}
-
-function renderInventarioEmpacado(){
+function renderInventarioTab(){
   const porLiberar = DATA.baches.filter(b=>b.etapaIdx===7 && !b.liberado)
     .sort((a,b)=> new Date(b.horaInicioEtapa) - new Date(a.horaInicioEtapa));
-  document.getElementById('inventario-empacado').innerHTML = porLiberar.length ? porLiberar.map(b=>`
-    <div class="lv-history-item">
-      <div><span class="tag" style="background:${DENOM[b.denom].color}">${DENOM[b.denom].label}</span> <span class="mono" style="margin-left:8px;">${b.codigo}</span></div>
-      <div class="op-meta">${b.peso_final} kg secos (grado 1) · ${b.bultos ?? 0} sacos · G2 ${b.peso_g2 ?? 0} kg e impurezas ${b.peso_impurezas ?? 0} kg ya en inventario común</div>
-      <div class="op-meta">Pendiente de liberación (Panel → Seguimiento)</div>
-    </div>`).join('') : '<div class="empty">No hay baches pendientes de liberación.</div>';
+  const totalPorLiberar = porLiberar.reduce((s,b)=>s+(b.peso_final||0),0);
 
   const liberadoSinAsignar = DATA.baches.filter(b=>b.etapaIdx===7 && b.liberado && disponibleLV(b) > 0)
     .sort((a,b)=> new Date(b.horaInicioEtapa) - new Date(a.horaInicioEtapa));
-  document.getElementById('inventario-liberado-sinlote').innerHTML = liberadoSinAsignar.length ? liberadoSinAsignar.map(b=>{
-    const disp = disponibleLV(b);
-    const parcial = disp < b.peso_final ? ` (${b.peso_final - disp} kg ya asignados a lote)` : '';
-    return `
-    <div class="lv-history-item">
-      <div><span class="tag" style="background:${DENOM[b.denom].color}">${DENOM[b.denom].label}</span> <span class="mono" style="margin-left:8px;">${b.codigo}</span></div>
-      <div class="op-meta">Disponible sin asignar: ${disp} kg secos${parcial} · ${Math.floor(disp/pesoBultoDe(b.denom))} sacos · liberado por ${b.liberadoPor||'—'}</div>
-    </div>`;
-  }).join('') : '<div class="empty">No hay baches liberados pendientes de asignar a un lote de venta.</div>';
+  const totalLiberadoSinAsignar = liberadoSinAsignar.reduce((s,b)=>s+disponibleLV(b),0);
 
   const lotesPendientes = [...DATA.lotes].reverse().filter(l=>!l.despacho);
-  document.getElementById('inventario-en-lote-pendiente').innerHTML = lotesPendientes.length ? lotesPendientes.map(l=>{
-    const bultosDetalle = (l.detalleBultos||[]).map(d=>`${d.codigo}: ${d.bultos} sacos (${d.kg} kg)`).join(' · ');
-    return `
-    <div class="lv-history-item">
-      <div><span class="tag" style="background:${DENOM[l.denom].color}">${DENOM[l.denom].label}</span> <span class="mono" style="margin-left:8px;">${l.codigo}</span></div>
-      <div class="op-meta">${(l.total_kg/1000).toFixed(2)} ton en bodega, pendiente de despacho (Panel → Lotes de venta)</div>
-      <div class="op-meta">${bultosDetalle}</div>
+  const totalEnLote = lotesPendientes.reduce((s,l)=>s+l.total_kg,0);
+
+  const totalBodega = totalPorLiberar + totalLiberadoSinAsignar + totalEnLote;
+
+  // ---- Hero ----
+  document.getElementById('inv-hero-total').innerHTML = `${(totalBodega/1000).toFixed(2)}<span>ton</span>`;
+  const pctA = totalBodega>0 ? totalPorLiberar/totalBodega*100 : 0;
+  const pctB = totalBodega>0 ? totalLiberadoSinAsignar/totalBodega*100 : 0;
+  const pctC = totalBodega>0 ? totalEnLote/totalBodega*100 : 0;
+  document.getElementById('inv-hero-bar').innerHTML = totalBodega>0 ? `
+    <div style="width:${pctA}%; background:var(--amber-2);"></div>
+    <div style="width:${pctB}%; background:var(--amber-3);"></div>
+    <div style="width:${pctC}%; background:var(--amber);"></div>` : '';
+  document.getElementById('inv-hero-legend').innerHTML = `
+    <span><i class="dot" style="background:var(--amber-2);"></i>Por liberar · ${(totalPorLiberar/1000).toFixed(2)} ton</span>
+    <span><i class="dot" style="background:var(--amber-3);"></i>Liberado sin lote · ${(totalLiberadoSinAsignar/1000).toFixed(2)} ton</span>
+    <span><i class="dot" style="background:var(--amber);"></i>En lote, sin despachar · ${(totalEnLote/1000).toFixed(2)} ton</span>`;
+
+  // ---- Embudo ----
+  const maxF = Math.max(totalPorLiberar, totalLiberadoSinAsignar, totalEnLote, 1);
+  const flex = (v) => Math.max(v/maxF, 0.15).toFixed(3);
+  document.getElementById('inv-funnel').innerHTML = `
+    <div class="pipe-wrap">
+      <div class="pipe">
+        <div class="pipe-seg" style="flex:${flex(totalPorLiberar)}; background:var(--amber-2); color:#3d2c12;"><span class="n">${(totalPorLiberar/1000).toFixed(2)} ton</span><span class="l">Por liberar</span></div>
+        <div class="pipe-arrow">›</div>
+        <div class="pipe-seg" style="flex:${flex(totalLiberadoSinAsignar)}; background:var(--amber-3);"><span class="n">${(totalLiberadoSinAsignar/1000).toFixed(2)} ton</span><span class="l">Liberado</span></div>
+        <div class="pipe-arrow">›</div>
+        <div class="pipe-seg" style="flex:${flex(totalEnLote)}; background:var(--amber);"><span class="n">${(totalEnLote/1000).toFixed(2)} ton</span><span class="l">En lote</span></div>
+      </div>
+    </div>
+    <p class="section-hint" style="margin-top:8px;">Lo despachado ya salió de bodega — se ve completo en la pestaña Despachos.</p>`;
+
+  // ---- Tarjetas colapsables por estado ----
+  const stageCard = (id, titulo, count, kg, itemsHtml) => `
+    <div class="queue-card ${invStageAbierto===id?'open':''}">
+      <div class="queue-head" onclick="toggleInvStage('${id}')">
+        <span class="code">${titulo}</span>
+        <span class="meta">${count}</span>
+        <span class="stage-kg mono" style="font-weight:600;">${(kg/1000).toFixed(2)} ton</span>
+        <span class="chev">›</span>
+      </div>
+      <div class="queue-body">${itemsHtml}</div>
     </div>`;
-  }).join('') : '<div class="empty">No hay lotes de venta pendientes de despacho.</div>';
+
+  document.getElementById('inv-stage-porliberar').innerHTML = stageCard(
+    'porliberar', 'Pendiente de liberación', `${porLiberar.length} bache${porLiberar.length===1?'':'s'}`, totalPorLiberar,
+    porLiberar.length ? porLiberar.map(b=>`
+      <div class="stage-item">
+        <span><span class="tag" style="background:${DENOM[b.denom].color}">${DENOM[b.denom].label}</span> ${b.codigo}</span>
+        <span class="section-hint" style="margin:0;">${b.peso_final} kg · ${b.bultos ?? 0} sacos · G2 ${b.peso_g2 ?? 0} kg</span>
+      </div>`).join('') : '<div class="empty">No hay baches pendientes de liberación.</div>'
+  );
+
+  document.getElementById('inv-stage-liberado').innerHTML = stageCard(
+    'liberado', 'Liberado, sin asignar a lote', `${liberadoSinAsignar.length} bache${liberadoSinAsignar.length===1?'':'s'}`, totalLiberadoSinAsignar,
+    liberadoSinAsignar.length ? liberadoSinAsignar.map(b=>{
+      const disp = disponibleLV(b);
+      const parcial = disp < b.peso_final ? ` (${b.peso_final-disp} kg ya en otro lote)` : '';
+      return `<div class="stage-item">
+        <span><span class="tag" style="background:${DENOM[b.denom].color}">${DENOM[b.denom].label}</span> ${b.codigo}</span>
+        <span class="section-hint" style="margin:0;">${disp} kg${parcial} · ${Math.floor(disp/pesoBultoDe(b.denom))} sacos</span>
+      </div>`;
+    }).join('') : '<div class="empty">No hay baches liberados pendientes de asignar a un lote.</div>'
+  );
+
+  document.getElementById('inv-stage-enlote').innerHTML = stageCard(
+    'enlote', 'Asignado a lote, pendiente de despacho', `${lotesPendientes.length} lote${lotesPendientes.length===1?'':'s'}`, totalEnLote,
+    lotesPendientes.length ? lotesPendientes.map(l=>`
+      <div class="stage-item">
+        <span><span class="tag" style="background:${DENOM[l.denom].color}">${DENOM[l.denom].label}</span> ${l.codigo}</span>
+        <span class="section-hint" style="margin:0;">${(l.total_kg/1000).toFixed(2)} ton · ${(l.baches||[]).join(', ')}</span>
+      </div>`).join('') : '<div class="empty">No hay lotes pendientes de despacho.</div>'
+  );
+
+  // ---- Otros inventarios ----
+  document.getElementById('other-g2').innerHTML = `${(DATA.inventarioSecundario.grado2/1000).toFixed(2)}<span style="font-size:12px; color:var(--ink-dim);"> ton</span>`;
+  document.getElementById('other-imp').innerHTML = `${(DATA.inventarioSecundario.impurezas/1000).toFixed(2)}<span style="font-size:12px; color:var(--ink-dim);"> ton</span>`;
+  const r = DATA.remanenteG1;
+  const remTotal = (r.ccn51||0)+(r.aromatico||0)+(r.upia||0);
+  document.getElementById('other-remanente').innerHTML = `${remTotal.toFixed(0)}<span style="font-size:12px; color:var(--ink-dim);"> kg</span>`;
+  document.getElementById('other-remanente-detalle').textContent = `CCN-51 ${(r.ccn51||0).toFixed(0)} · Aromático ${(r.aromatico||0).toFixed(0)} · Upia ${(r.upia||0).toFixed(0)}`;
+  document.getElementById('other-local').innerHTML = `${((DATA.cacaoLocal.total||0)/1000).toFixed(2)}<span style="font-size:12px; color:var(--ink-dim);"> ton</span>`;
 }
 
 /* ---------- DESPACHOS (lotes de venta ya despachados) ---------- */
@@ -659,22 +692,17 @@ function render(){
   renderProcesadoChart();
   renderProcesadoSecoChart();
   renderDenomDonut();
-  renderInventarioProceso();
-  renderDespachadoResumen();
+  renderFlujoProduccion();
   renderDashboardKPIs();
   renderProyeccionCapacidad();
   renderProyeccion();
   renderProyeccionBodega();
-  renderInventarioEmpacado();
-  renderInventarioSecundario();
-  renderTotalBodega();
-  renderRemanenteG1();
-  renderCacaoLocalTablero();
+  renderInventarioTab();
   renderDespachosTab();
 }
 
 inicializarTabs();
-inicializarGateSimple('phc-tablero-2026', 'acceso-valido-tablero');
+inicializarGateSimple('phc2026', 'acceso-valido-tablero');
 document.getElementById('trace-f-denom').addEventListener('change', render);
 document.getElementById('trace-f-desde').addEventListener('change', render);
 document.getElementById('trace-f-hasta').addEventListener('change', render);

@@ -28,6 +28,13 @@
   </nav>
 </div>
 
+<div class="idbar">
+  <span class="who">Jefe de producción:</span>
+  <input type="text" id="admin-nombre" placeholder="Escribe tu nombre">
+  <span class="role">Panel administrador</span>
+</div>
+<div id="admin-msg" style="padding:0 24px;"></div>
+
 <div id="gate-overlay" class="gate-overlay">
   <div class="gate-card">
     <img src="logo-bacao.png" alt="Bacao" class="gate-logo">
@@ -42,84 +49,91 @@
 <main>
 
   <div class="panel active" id="panel-administrador">
-    <p class="block-title">Identificación</p>
-    <div class="mapa-form" style="max-width:400px;">
-      <div class="field"><label>Nombre del jefe de producción</label><input type="text" id="admin-nombre" placeholder="Requerido para liberar y generar lotes"></div>
-    </div>
-    <div id="admin-msg"></div>
-
     <nav class="admin-subtabs">
-      <button class="admin-tab active" data-admintab="config">Configuración</button>
-      <button class="admin-tab" data-admintab="seguimiento">Seguimiento</button>
-      <button class="admin-tab" data-admintab="lotes">Lotes de venta</button>
+      <button class="admin-tab active" data-admintab="seguimiento">Seguimiento <span class="badge" id="badge-seguimiento" style="display:none;"></span></button>
+      <button class="admin-tab" data-admintab="lotes">Despachos productos</button>
       <button class="admin-tab" data-admintab="editar">Editar baches</button>
       <button class="admin-tab" data-admintab="movimientos">Movimientos</button>
+      <div class="admin-tabs-divider"></div>
+      <button class="admin-tab" data-admintab="config">Configuración</button>
       <button class="admin-tab" data-admintab="datos">Datos</button>
     </nav>
 
-    <div class="admin-panel active" id="admin-config">
-      <p class="block-title">Mapa maestro de producción (horas límite por etapa)</p>
-      <div class="mapa-form">
-        <div class="field"><label>Recepción en bines (h)</label><input type="number" id="mm-recepcion"></div>
-        <div class="field"><label>F. anaeróbica (h)</label><input type="number" id="mm-anaerobica"></div>
-        <div class="field"><label>F. aeróbica (h)</label><input type="number" id="mm-aerobica"></div>
-        <div class="field"><label>Presecado (h)</label><input type="number" id="mm-presecado"></div>
-        <div class="field"><label>Secado (h)</label><input type="number" id="mm-secado"></div>
-      </div>
-      <button class="secondary" id="btn-guardar-mapa">Guardar mapa maestro</button>
+    <div class="admin-panel" id="admin-config">
+      <p class="section-hint" style="margin-top:0;">Se cambia rara vez — solo cuando ajustan tiempos, capacidad o pesos de referencia.</p>
 
-      <div class="section-gap">
-        <p class="block-title">Maestro de conversión (kg de cacao por tonelada de fruto fresco, según etapa)</p>
-        <div class="mapa-form">
-          <div class="field"><label>Después de despulpado / bines, entra a F. anaeróbica (kg/ton)</label><input type="number" id="mc-anaerobica"></div>
-          <div class="field"><label>Al pasar a F. aeróbica (kg/ton)</label><input type="number" id="mc-aerobica"></div>
-          <div class="field"><label>Al entrar a Presecado (kg/ton)</label><input type="number" id="mc-presecado"></div>
-          <div class="field"><label>Al entrar a Secado (kg/ton)</label><input type="number" id="mc-secado"></div>
-          <div class="field"><label>Al salir de Secado — cacao seco final (kg/ton)</label><input type="number" id="mc-seco"></div>
+      <details class="settings-group">
+        <summary>Mapa maestro de producción (horas límite por etapa)</summary>
+        <div class="settings-body">
+          <div class="mapa-form" style="margin-top:10px;">
+            <div class="field"><label>Recepción en bines (h)</label><input type="number" id="mm-recepcion"></div>
+            <div class="field"><label>F. anaeróbica (h)</label><input type="number" id="mm-anaerobica"></div>
+            <div class="field"><label>F. aeróbica (h)<span style="display:block; font-size:11px; color:var(--ink-dim);">+24 h para Aromático y Upia</span></label><input type="number" id="mm-aerobica"></div>
+            <div class="field"><label>Presecado (h)</label><input type="number" id="mm-presecado"></div>
+            <div class="field"><label>Secado (h)</label><input type="number" id="mm-secado"></div>
+          </div>
+          <button class="secondary" id="btn-guardar-mapa">Guardar mapa maestro</button>
         </div>
-        <button class="secondary" id="btn-guardar-conversion">Guardar maestro de conversión</button>
-        <p class="op-meta" style="margin-top:10px;">
-          Esta tabla es de referencia para ver la merma esperada en cada etapa.
-          El indicador "cacao seco equivalente" del Tablero usa siempre el
-          último valor (seco final), sin importar en qué etapa esté el bache.
-        </p>
-      </div>
+      </details>
 
-      <div class="section-gap">
-        <p class="block-title">Maestro de capacidad (unidades físicas por etapa)</p>
-        <div class="mapa-form">
-          <div class="field"><label>Bines: cantidad</label><input type="number" id="cap-bines-total"></div>
-          <div class="field"><label>Bines: kg por bin</label><input type="number" id="cap-bines-kg"></div>
-          <div class="field"><label>Cajones anaeróbicos: cantidad</label><input type="number" id="cap-anaerobica-total"></div>
-          <div class="field"><label>Cajones anaeróbicos: kg por cajón</label><input type="number" id="cap-anaerobica-kg"></div>
-          <div class="field"><label>Cajones aeróbicos: cantidad</label><input type="number" id="cap-aerobica-total"></div>
-          <div class="field"><label>Cajones aeróbicos: kg por cajón</label><input type="number" id="cap-aerobica-kg"></div>
-          <div class="field"><label>Presecadoras: cantidad</label><input type="number" id="cap-presecado-total"></div>
-          <div class="field"><label>Presecadoras: kg cada una</label><input type="number" id="cap-presecado-kg"></div>
-          <div class="field"><label>Secadoras: cantidad</label><input type="number" id="cap-secado-total"></div>
-          <div class="field"><label>Secadoras: kg cada una</label><input type="number" id="cap-secado-kg"></div>
-          <div class="field"><label>Bodega: capacidad total (ton)</label><input type="number" id="cap-almacen-ton"></div>
-          <div class="field"><label>Peso por bulto — CCN-51 (kg)</label><input type="number" id="cap-peso-bulto-ccn51"></div>
-          <div class="field"><label>Peso por bulto — Aromático (kg)</label><input type="number" id="cap-peso-bulto-aromatico"></div>
-          <div class="field"><label>Peso por bulto — Upia (kg)</label><input type="number" id="cap-peso-bulto-upia"></div>
+      <details class="settings-group">
+        <summary>Maestro de conversión (kg de cacao por tonelada de fruto fresco)</summary>
+        <div class="settings-body">
+          <div class="mapa-form" style="margin-top:10px;">
+            <div class="field"><label>Después de despulpado / bines, entra a F. anaeróbica (kg/ton)</label><input type="number" id="mc-anaerobica"></div>
+            <div class="field"><label>Al pasar a F. aeróbica (kg/ton)</label><input type="number" id="mc-aerobica"></div>
+            <div class="field"><label>Al entrar a Presecado (kg/ton)</label><input type="number" id="mc-presecado"></div>
+            <div class="field"><label>Al entrar a Secado (kg/ton)</label><input type="number" id="mc-secado"></div>
+            <div class="field"><label>Al salir de Secado — cacao seco final (kg/ton)</label><input type="number" id="mc-seco"></div>
+          </div>
+          <button class="secondary" id="btn-guardar-conversion">Guardar maestro de conversión</button>
+          <p class="op-meta" style="margin-top:10px;">
+            Esta tabla es de referencia para ver la merma esperada en cada etapa.
+            El indicador "cacao seco equivalente" del Tablero usa siempre el
+            último valor (seco final), sin importar en qué etapa esté el bache.
+          </p>
         </div>
-        <button class="secondary" id="btn-guardar-capacidad">Guardar maestro de capacidad</button>
-        <p class="op-meta" style="margin-top:10px;">
-          Cámbialo aquí cuando aumente la capacidad de la planta (más bines,
-          cajones, presecadoras/secadoras, o más bodega). Se aplica de
-          inmediato en Operación, Dashboard y Proyección.
-        </p>
-      </div>
+      </details>
+
+      <details class="settings-group">
+        <summary>Maestro de capacidad (unidades físicas por etapa)</summary>
+        <div class="settings-body">
+          <div class="mapa-form" style="margin-top:10px;">
+            <div class="field"><label>Bines: cantidad</label><input type="number" id="cap-bines-total"></div>
+            <div class="field"><label>Bines: kg por bin</label><input type="number" id="cap-bines-kg"></div>
+            <div class="field"><label>Cajones anaeróbicos: cantidad</label><input type="number" id="cap-anaerobica-total"></div>
+            <div class="field"><label>Cajones anaeróbicos: kg por cajón</label><input type="number" id="cap-anaerobica-kg"></div>
+            <div class="field"><label>Cajones aeróbicos: cantidad</label><input type="number" id="cap-aerobica-total"></div>
+            <div class="field"><label>Cajones aeróbicos: kg por cajón</label><input type="number" id="cap-aerobica-kg"></div>
+            <div class="field"><label>Presecadoras: cantidad</label><input type="number" id="cap-presecado-total"></div>
+            <div class="field"><label>Presecadoras: kg cada una</label><input type="number" id="cap-presecado-kg"></div>
+            <div class="field"><label>Secadoras: cantidad</label><input type="number" id="cap-secado-total"></div>
+            <div class="field"><label>Secadoras: kg cada una</label><input type="number" id="cap-secado-kg"></div>
+            <div class="field"><label>Bodega: capacidad total (ton)</label><input type="number" id="cap-almacen-ton"></div>
+            <div class="field"><label>Peso por bulto — CCN-51 (kg)</label><input type="number" id="cap-peso-bulto-ccn51"></div>
+            <div class="field"><label>Peso por bulto — Aromático (kg)</label><input type="number" id="cap-peso-bulto-aromatico"></div>
+            <div class="field"><label>Peso por bulto — Upia (kg)</label><input type="number" id="cap-peso-bulto-upia"></div>
+          </div>
+          <button class="secondary" id="btn-guardar-capacidad">Guardar maestro de capacidad</button>
+          <p class="op-meta" style="margin-top:10px;">
+            Cámbialo aquí cuando aumente la capacidad de la planta (más bines,
+            cajones, presecadoras/secadoras, o más bodega). Se aplica de
+            inmediato en Operación, Dashboard y Proyección.
+          </p>
+        </div>
+      </details>
     </div>
 
-    <div class="admin-panel" id="admin-seguimiento">
-      <p class="block-title">Seguimiento de tiempo por bache (normales y excedidos)</p>
-      <div class="lv-history" id="admin-fuera-norma"></div>
+    <div class="admin-panel active" id="admin-seguimiento">
+      <div class="stat-row" id="seg-stats"></div>
 
-      <div class="section-gap">
-        <p class="block-title">Liberación de producto a inventario</p>
-        <div class="lv-history" id="admin-liberacion"></div>
-      </div>
+      <p class="block-title">Liberación de producto</p>
+      <p class="section-hint">Lo primero que revisar cada día: hacer la prueba de corte y decidir si se libera.</p>
+      <div id="admin-liberacion"></div>
+
+      <p class="block-title" style="margin-top:26px;">Seguimiento de tiempo por etapa</p>
+      <p class="section-hint">Cerrado por defecto — ábrelo si necesitas ver el detalle de una etapa.</p>
+      <div id="admin-fuera-norma"></div>
     </div>
 
     <div class="admin-panel" id="admin-lotes">
@@ -133,49 +147,64 @@
       </div>
 
       <div class="section-gap">
-        <p class="block-title">Despachar grado 2 e impurezas (inventario común)</p>
-        <div id="inventario-secundario-resumen" style="margin-bottom:16px;"></div>
-        <div class="mapa-form" style="max-width:600px;">
-          <div class="field"><label>Despachar Grado 2 (kg)</label><input type="number" id="desp-g2-cantidad" min="0" step="0.1"></div>
-          <div class="field"><label>Despachar impurezas (kg)</label><input type="number" id="desp-imp-cantidad" min="0" step="0.1"></div>
+        <p class="block-title">Grado 2</p>
+        <div class="report-card">
+          <div class="pipe mini" id="g2-pipe"></div>
+          <div class="btn-row" style="display:flex; gap:8px; margin-top:12px;">
+            <input type="number" id="desp-g2-cantidad" min="0" step="0.1" placeholder="kg a despachar" style="flex:1; border:1px solid var(--line); border-radius:8px; padding:9px 12px; font-family:inherit; font-size:13px;">
+            <button id="btn-despachar-secundario-g2">Despachar</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-gap">
+        <p class="block-title">Impurezas</p>
+        <div class="report-card">
+          <div class="pipe mini" id="imp-pipe"></div>
+          <div class="btn-row" style="display:flex; gap:8px; margin-top:12px;">
+            <input type="number" id="desp-imp-cantidad" min="0" step="0.1" placeholder="kg a despachar" style="flex:1; border:1px solid var(--line); border-radius:8px; padding:9px 12px; font-family:inherit; font-size:13px;">
+            <button id="btn-despachar-secundario-imp">Despachar</button>
+          </div>
         </div>
         <div id="desp-secundario-msg"></div>
-        <button id="btn-despachar-secundario">Registrar despacho</button>
-        <button class="secondary" id="btn-recalcular-secundario">Recalcular desde baches ya empacados</button>
-        <p class="op-meta" style="margin-top:10px;">Usa el nombre del jefe de producción de arriba (Identificación) como responsable de este despacho. Si tienes baches que se empacaron antes de que existiera este inventario, usa "Recalcular" para sumarlos (es seguro repetirlo, no duplica).</p>
+        <button class="secondary" id="btn-recalcular-secundario" style="margin-top:10px;">Recalcular desde baches ya empacados</button>
+        <p class="op-meta" style="margin-top:10px;">Usa el nombre del jefe de producción de arriba como responsable de estos despachos. Si tienes baches que se empacaron antes de que existiera este inventario, usa "Recalcular" para sumarlos (es seguro repetirlo, no duplica).</p>
       </div>
 
       <div class="section-gap">
-        <p class="block-title">Secar cacao LOCAL (de fresco a seco)</p>
-        <div id="cacao-local-enproceso-resumen" style="margin-bottom:16px;"></div>
-        <div class="mapa-form" style="max-width:600px;">
-          <div class="field"><label>Cantidad fresca a procesar (kg)</label><input type="number" id="secar-local-fresco" min="0" step="0.1"></div>
-          <div class="field"><label>Peso seco resultante (kg)</label><input type="number" id="secar-local-seco" min="0" step="0.1"></div>
-        </div>
-        <div id="secar-local-msg"></div>
-        <button id="btn-secar-local">Registrar secado</button>
-        <p class="op-meta" style="margin-top:10px;">El cacao LOCAL entra fresco y también pierde peso al secarse. Aquí el líder registra cuánto fresco tomó y cuánto pesó ya seco; ese peso seco pasa a "pendiente de liberar".</p>
-      </div>
+        <p class="block-title">Cacao LOCAL</p>
+        <p class="section-hint">Fresco → seco → liberado → despachado. Cada paso es una acción aparte.</p>
+        <div class="report-card">
+          <div class="pipe" id="local-pipe"></div>
 
-      <div class="section-gap">
-        <p class="block-title">Liberar cacao LOCAL (ya seco, pendiente de liberación)</p>
-        <div id="cacao-local-secopendiente-resumen" style="margin-bottom:16px;"></div>
-        <div class="mapa-form" style="max-width:400px;">
-          <div class="field"><label>Cantidad a liberar (kg)</label><input type="number" id="lib-local-cantidad" min="0" step="0.1"></div>
-        </div>
-        <div id="lib-local-msg"></div>
-        <button id="btn-liberar-local">Liberar al inventario final</button>
-        <p class="op-meta" style="margin-top:10px;">Se pre-llena con toda la suma pendiente; puedes editarla para liberar solo una parte.</p>
-      </div>
+          <div class="setting-row" style="margin-top:14px;">
+            <span class="lbl">Secar<span class="sub" id="local-enproceso-sub">0 kg fresco pendiente</span></span>
+          </div>
+          <div class="btn-row" style="display:flex; gap:8px; flex-wrap:wrap;">
+            <input type="number" id="secar-local-fresco" min="0" step="0.1" placeholder="kg fresco a procesar" style="flex:1; min-width:140px; border:1px solid var(--line); border-radius:8px; padding:9px 12px; font-family:inherit; font-size:13px;">
+            <input type="number" id="secar-local-seco" min="0" step="0.1" placeholder="kg seco resultante" style="flex:1; min-width:140px; border:1px solid var(--line); border-radius:8px; padding:9px 12px; font-family:inherit; font-size:13px;">
+            <button class="secondary" id="btn-secar-local">Registrar secado</button>
+          </div>
+          <div id="secar-local-msg"></div>
 
-      <div class="section-gap">
-        <p class="block-title">Despachar cacao LOCAL (ya liberado)</p>
-        <div id="cacao-local-resumen" style="margin-bottom:16px;"></div>
-        <div class="mapa-form" style="max-width:400px;">
-          <div class="field"><label>Despachar cacao LOCAL (kg)</label><input type="number" id="desp-local-cantidad" min="0" step="0.1"></div>
+          <div class="setting-row" style="margin-top:14px;">
+            <span class="lbl">Liberar<span class="sub" id="local-secopendiente-sub">0 kg seco pendiente</span></span>
+          </div>
+          <div class="btn-row" style="display:flex; gap:8px;">
+            <input type="number" id="lib-local-cantidad" min="0" step="0.1" placeholder="kg a liberar" style="flex:1; border:1px solid var(--line); border-radius:8px; padding:9px 12px; font-family:inherit; font-size:13px;">
+            <button class="secondary" id="btn-liberar-local">Liberar</button>
+          </div>
+          <div id="lib-local-msg"></div>
+
+          <div class="setting-row" style="margin-top:14px;">
+            <span class="lbl">Despachar<span class="sub" id="local-total-sub">0 kg liberado disponible</span></span>
+          </div>
+          <div class="btn-row" style="display:flex; gap:8px;">
+            <input type="number" id="desp-local-cantidad" min="0" step="0.1" placeholder="kg a despachar" style="flex:1; border:1px solid var(--line); border-radius:8px; padding:9px 12px; font-family:inherit; font-size:13px;">
+            <button class="secondary" id="btn-despachar-local">Despachar</button>
+          </div>
+          <div id="desp-local-msg"></div>
         </div>
-        <div id="desp-local-msg"></div>
-        <button id="btn-despachar-local">Registrar despacho</button>
       </div>
     </div>
 
@@ -205,24 +234,41 @@
     </div>
 
     <div class="admin-panel" id="admin-datos">
-      <p class="block-title">Respaldo y exportación de datos</p>
-      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:10px;">
-        <button class="secondary" id="btn-backup">Descargar backup completo (JSON)</button>
-        <button class="secondary" id="btn-export-baches">Exportar baches (CSV)</button>
-        <button class="secondary" id="btn-export-lotes">Exportar lotes de venta (CSV)</button>
-      </div>
-      <div class="field" style="max-width:400px;">
-        <label>Restaurar backup (JSON)</label>
-        <input type="file" id="input-restore" accept="application/json">
+      <p class="section-hint" style="margin-top:0;">Herramientas de respaldo y exportación — de uso ocasional.</p>
+      <div class="report-card">
+        <div class="tool-row">
+          <span class="t">Descargar backup completo<span class="sub">JSON con todo lo guardado</span></span>
+          <button class="secondary" id="btn-backup">Descargar</button>
+        </div>
+        <div class="tool-row">
+          <span class="t">Exportar baches<span class="sub">CSV</span></span>
+          <button class="secondary" id="btn-export-baches">Exportar</button>
+        </div>
+        <div class="tool-row">
+          <span class="t">Exportar lotes de venta<span class="sub">CSV</span></span>
+          <button class="secondary" id="btn-export-lotes">Exportar</button>
+        </div>
+        <div class="tool-row">
+          <span class="t">Restaurar backup<span class="sub">Reemplaza todos los datos</span></span>
+          <input type="file" id="input-restore" accept="application/json" style="max-width:200px;">
+        </div>
       </div>
       <div id="backup-msg"></div>
 
-      <div class="section-gap">
-        <p class="block-title">Herramientas de prueba</p>
-        <button class="secondary" id="btn-ejemplo">Cargar baches de ejemplo</button>
-        <button class="secondary" id="btn-borrar" style="border-color:var(--warn); color:var(--warn);">Borrar todos los baches (pruebas)</button>
-        <div id="ejemplo-msg"></div>
-      </div>
+      <details class="settings-group">
+        <summary style="color:var(--warn);">Herramientas de prueba (con cuidado)</summary>
+        <div class="settings-body">
+          <div class="tool-row">
+            <span class="t">Cargar baches de ejemplo</span>
+            <button class="secondary" id="btn-ejemplo">Cargar</button>
+          </div>
+          <div class="tool-row">
+            <span class="t">Borrar todos los baches<span class="sub">Solo para pruebas — no se puede deshacer</span></span>
+            <button class="secondary" id="btn-borrar" style="border-color:var(--warn); color:var(--warn);">Borrar</button>
+          </div>
+          <div id="ejemplo-msg"></div>
+        </div>
+      </details>
     </div>
   </div>
 

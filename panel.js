@@ -95,33 +95,69 @@ async function guardarCapacidadMaestro(){
 }
 
 /* ---------- SEGUIMIENTO ---------- */
+function renderSeguimientoStats(){
+  const activos = DATA.baches.filter(b=>ACTIVE_INDICES.includes(b.etapaIdx));
+  const now = new Date();
+  const excedidos = activos.filter(b=>{
+    const horas = (now - new Date(b.horaInicioEtapa))/3600000;
+    const lim = limiteHoras(b.etapaIdx, b.denom);
+    return lim!=null && horas > lim;
+  });
+  const pendientesLib = DATA.baches.filter(b=>b.etapaIdx===7 && !b.liberado);
+
+  document.getElementById('seg-stats').innerHTML = `
+    <div class="stat"><div class="n">${activos.length}</div><div class="l">Baches activos</div></div>
+    <div class="stat"><div class="n ${excedidos.length?'warn':''}">${excedidos.length}</div><div class="l">Excedidos</div></div>
+    <div class="stat"><div class="n">${pendientesLib.length}</div><div class="l">Pendientes de liberación</div></div>
+  `;
+
+  const badge = document.getElementById('badge-seguimiento');
+  const total = excedidos.length + pendientesLib.length;
+  if(total>0){ badge.style.display='inline-block'; badge.textContent = total; badge.className = excedidos.length ? 'badge' : 'badge muted'; }
+  else { badge.style.display='none'; }
+}
+
 function renderFueraDeNorma(){
   const now = new Date();
-  const lista = DATA.baches
+  const activos = DATA.baches
     .filter(b=>ACTIVE_INDICES.includes(b.etapaIdx))
     .map(b=>{
       const horas = (now - new Date(b.horaInicioEtapa))/3600000;
       const lim = limiteHoras(b.etapaIdx, b.denom);
       const excedido = lim!=null && horas > lim;
       return {b, horas, lim, excedido};
-    })
-    .sort((a,b2)=>{
-      if(a.excedido !== b2.excedido) return a.excedido ? -1 : 1;
-      return (b2.horas-(b2.lim||0)) - (a.horas-(a.lim||0));
     });
 
   const el = document.getElementById('admin-fuera-norma');
-  el.innerHTML = lista.length ? lista.map(x=>{
+  if(activos.length===0){ el.innerHTML = '<div class="empty">No hay baches activos actualmente.</div>'; return; }
+
+  const item = (x) => {
     const estadoTxt = x.excedido
-      ? `<span class="cap-text excedido">excede por ${(x.horas-x.lim).toFixed(1)} h</span>`
-      : (x.lim!=null ? `<span class="cap-text" style="color:var(--ok);">dentro de tiempo (límite ${x.lim} h)</span>` : `<span class="op-meta">sin límite de tiempo</span>`);
-    return `
-    <div class="lv-history-item">
-      <div><span class="tag" style="background:${DENOM[x.b.denom].color}">${DENOM[x.b.denom].label}</span> <span class="mono" style="margin-left:8px;">${x.b.codigo}</span></div>
-      <div class="op-meta">${STAGES[x.b.etapaIdx]} · ${x.horas.toFixed(1)} h en etapa</div>
-      <div>${estadoTxt}</div>
+      ? `<span class="warn">excede por ${(x.horas-x.lim).toFixed(1)} h</span>`
+      : (x.lim!=null ? `<span class="ok">${x.horas.toFixed(1)} h (límite ${x.lim} h)</span>` : `<span class="section-hint" style="margin:0;">sin límite de tiempo</span>`);
+    return `<div class="stage-item">
+      <span><span class="tag" style="background:${DENOM[x.b.denom].color}">${DENOM[x.b.denom].label}</span> ${x.b.codigo}</span>
+      ${estadoTxt}
     </div>`;
-  }).join('') : '<div class="empty">No hay baches activos actualmente.</div>';
+  };
+
+  const excedidos = activos.filter(x=>x.excedido);
+  let html = '';
+  if(excedidos.length){
+    html += `<details class="stage-group warn" open>
+      <summary>Excedidos <span class="count">${excedidos.length} bache${excedidos.length===1?'':'s'}</span></summary>
+      ${excedidos.map(item).join('')}
+    </details>`;
+  }
+  TIME_UNIDADES.forEach(idx=>{
+    const enEtapa = activos.filter(x=>x.b.etapaIdx===idx && !x.excedido);
+    if(enEtapa.length===0) return;
+    html += `<details class="stage-group">
+      <summary>${STAGES[idx]} <span class="count">${enEtapa.length} bache${enEtapa.length===1?'':'s'}</span></summary>
+      ${enEtapa.map(item).join('')}
+    </details>`;
+  });
+  el.innerHTML = html;
 }
 
 async function liberarBache(codigo){
@@ -164,39 +200,57 @@ async function liberarBache(codigo){
   b.liberado = true;
   b.liberadoPor = nombre;
   b.liberadoFecha = new Date().toISOString();
+  libAbierto = null;
   registrarMovimiento('Producto liberado', `Bache ${codigo}: ${b.peso_final} kg secos · Prueba de corte: ${resultadoCorte}`, nombre);
   msg.innerHTML = '';
   await save();
   render();
 }
 
+let libAbierto = null;
+function toggleLibCard(codigo){
+  libAbierto = (libAbierto === codigo) ? null : codigo;
+  render();
+}
+
 function renderLiberacion(){
   const pendientes = DATA.baches.filter(b=>b.etapaIdx===7 && !b.liberado);
   const el = document.getElementById('admin-liberacion');
-  el.innerHTML = pendientes.length ? pendientes.map(b=>{
+  if(pendientes.length===0){ el.innerHTML = '<div class="empty">No hay baches pendientes de liberación.</div>'; return; }
+
+  el.innerHTML = pendientes.map(b=>{
+    const abierto = libAbierto ? libAbierto===b.codigo : (b===pendientes[0]);
     const basculasTxt = (b.basculas||[]).map(x=>`${x.numero} (${x.peso} kg)`).join(', ') || '—';
     const convTxt = b.factorConversion!=null
       ? ` · <span style="color:${(b.factorConversion<25||b.factorConversion>40)?'var(--warn)':'var(--ok)'}; font-weight:600;">% conversión: ${b.factorConversion}%</span>`
       : '';
+    const horasEmpacado = ((new Date() - new Date(b.horaInicioEtapa))/3600000).toFixed(0);
     return `
-    <div class="lv-history-item" style="flex-direction:column; align-items:stretch;">
-      <div><span class="tag" style="background:${DENOM[b.denom].color}">${DENOM[b.denom].label}</span> <span class="mono" style="margin-left:8px;">${b.codigo}</span></div>
-      <div class="op-meta">Fecha de recepción: ${b.fecha} · Peso fresco: ${b.peso_fresco} kg · Básculas: ${basculasTxt}</div>
-      <div class="op-meta">Empacado: ${b.bultos ?? 0} bultos (${b.peso_final} kg) · Remanente recibido ${b.remanenteRecibido ?? 0} kg / resultante ${b.remanenteResultante ?? 0} kg · G2 ${b.peso_g2 ?? 0} kg · Impurezas ${b.peso_impurezas ?? 0} kg${convTxt}</div>
-      <div class="op-preview" style="margin-top:6px;">Prueba de corte (muestra de 50 granos)</div>
-      <div class="row" style="display:flex; gap:10px; flex-wrap:wrap;">
-        <div class="field" style="flex:1; min-width:120px; margin-bottom:0;"><label>Granos marrones</label><input type="number" id="lib-gm-${b.codigo}" min="0" max="50" step="1"></div>
-        <div class="field" style="flex:1; min-width:120px; margin-bottom:0;"><label>Marrones violeta</label><input type="number" id="lib-gmv-${b.codigo}" min="0" max="50" step="1"></div>
-        <div class="field" style="flex:1; min-width:120px; margin-bottom:0;"><label>Violetas</label><input type="number" id="lib-gv-${b.codigo}" min="0" max="50" step="1"></div>
-        <div class="field" style="flex:1; min-width:120px; margin-bottom:0;"><label>Moho o pizarra</label><input type="number" id="lib-gmoho-${b.codigo}" min="0" max="50" step="1"></div>
+    <div class="queue-card ${abierto?'open':''}">
+      <div class="queue-head" onclick="toggleLibCard('${b.codigo}')">
+        <span class="tag" style="background:${DENOM[b.denom].color}">${DENOM[b.denom].label}</span>
+        <span class="code mono">${b.codigo}</span>
+        <span class="meta">${b.peso_final} kg · ${b.bultos ?? 0} sacos · empacado hace ${horasEmpacado} h</span>
+        <span class="chev">›</span>
       </div>
-      <div id="lib-msg-${b.codigo}"></div>
-      <div style="display:flex; gap:10px; margin-top:8px;">
-        <button onclick="liberarBache('${b.codigo}')">Liberar para despacho</button>
-        <button class="secondary" onclick="retrocederDesdeAlmacenado('${b.codigo}')">↩ Devolver a Empaque</button>
+      <div class="queue-body">
+        <p class="section-hint" style="margin-top:12px;">Fecha de recepción: ${b.fecha} · Peso fresco: ${b.peso_fresco} kg · Básculas: ${basculasTxt}</p>
+        <p class="section-hint">Remanente recibido ${b.remanenteRecibido ?? 0} kg / resultante ${b.remanenteResultante ?? 0} kg · G2 ${b.peso_g2 ?? 0} kg · Impurezas ${b.peso_impurezas ?? 0} kg${convTxt}</p>
+        <p class="block-title" style="margin-top:14px;">Prueba de corte (muestra de 50 granos)</p>
+        <div class="row" style="display:flex; gap:10px; flex-wrap:wrap;" onclick="event.stopPropagation()">
+          <div class="field" style="flex:1; min-width:120px; margin-bottom:0;"><label>Granos marrones</label><input type="number" id="lib-gm-${b.codigo}" min="0" max="50" step="1"></div>
+          <div class="field" style="flex:1; min-width:120px; margin-bottom:0;"><label>Marrones violeta</label><input type="number" id="lib-gmv-${b.codigo}" min="0" max="50" step="1"></div>
+          <div class="field" style="flex:1; min-width:120px; margin-bottom:0;"><label>Violetas</label><input type="number" id="lib-gv-${b.codigo}" min="0" max="50" step="1"></div>
+          <div class="field" style="flex:1; min-width:120px; margin-bottom:0;"><label>Moho o pizarra</label><input type="number" id="lib-gmoho-${b.codigo}" min="0" max="50" step="1"></div>
+        </div>
+        <div id="lib-msg-${b.codigo}"></div>
+        <div class="btn-row" style="display:flex; gap:10px; margin-top:8px;" onclick="event.stopPropagation()">
+          <button onclick="liberarBache('${b.codigo}')">Liberar para despacho</button>
+          <button class="secondary" onclick="retrocederDesdeAlmacenado('${b.codigo}')">↩ Devolver a Empaque</button>
+        </div>
       </div>
     </div>`;
-  }).join('') : '<div class="empty">No hay baches pendientes de liberación.</div>';
+  }).join('');
 }
 
 async function retrocederDesdeAlmacenado(codigo){
@@ -230,6 +284,7 @@ async function retrocederDesdeAlmacenado(codigo){
   b.contadoEnPoolG2 = false;
   b.etapaIdx = entry.etapaIdx;
   b.horaInicioEtapa = entry.horaInicio;
+  libAbierto = null;
   registrarMovimiento('Retroceso de etapa (desde liberación)', `Bache ${codigo}: vuelve a ${STAGES[b.etapaIdx]}`, nombre);
   await save();
   render();
@@ -353,25 +408,21 @@ function renderLotesDespacho(){
 function renderCacaoLocalPanel(){
   const enProceso = DATA.cacaoLocal.enProceso || 0;
   const secoPendiente = DATA.cacaoLocal.secoPendienteLiberar || 0;
+  const total = DATA.cacaoLocal.total || 0;
 
-  document.getElementById('cacao-local-enproceso-resumen').innerHTML = `
-    <div class="dash-grid">
-      <div class="dash-card"><div class="n">${enProceso.toFixed(1)}</div><div class="label">Cacao LOCAL fresco, pendiente de secar (kg)</div></div>
-    </div>`;
+  document.getElementById('local-pipe').innerHTML = `
+    <div class="pipe-seg" style="background:var(--amber-1); color:#3d2c12;"><span class="n">${enProceso.toFixed(1)} kg</span><span class="l">fresco, sin secar</span></div>
+    <div class="pipe-seg" style="background:var(--amber-2); color:#3d2c12;"><span class="n">${secoPendiente.toFixed(1)} kg</span><span class="l">seco, sin liberar</span></div>
+    <div class="pipe-seg" style="background:var(--amber);"><span class="n">${total.toFixed(1)} kg</span><span class="l">liberado, disponible</span></div>`;
+
+  document.getElementById('local-enproceso-sub').textContent = `${enProceso.toFixed(1)} kg fresco pendiente`;
+  document.getElementById('local-secopendiente-sub').textContent = `${secoPendiente.toFixed(1)} kg seco pendiente`;
+  document.getElementById('local-total-sub').textContent = `${total.toFixed(1)} kg liberado disponible`;
+
   const campoFresco = document.getElementById('secar-local-fresco');
   if(document.activeElement !== campoFresco) campoFresco.value = enProceso > 0 ? enProceso : '';
-
-  document.getElementById('cacao-local-secopendiente-resumen').innerHTML = `
-    <div class="dash-grid">
-      <div class="dash-card"><div class="n">${secoPendiente.toFixed(1)}</div><div class="label">Cacao LOCAL ya seco, pendiente de liberación (kg)</div></div>
-    </div>`;
   const campoLib = document.getElementById('lib-local-cantidad');
   if(document.activeElement !== campoLib) campoLib.value = secoPendiente > 0 ? secoPendiente : '';
-
-  document.getElementById('cacao-local-resumen').innerHTML = `
-    <div class="dash-grid">
-      <div class="dash-card"><div class="n">${(DATA.cacaoLocal.total||0).toFixed(1)}</div><div class="label">Cacao LOCAL disponible, ya liberado (kg)</div></div>
-    </div>`;
 }
 
 async function secarCacaoLocal(){
@@ -436,34 +487,47 @@ async function despacharCacaoLocal(){
 function renderInventarioSecundario(){
   const g2 = DATA.inventarioSecundario.grado2;
   const imp = DATA.inventarioSecundario.impurezas;
-  document.getElementById('inventario-secundario-resumen').innerHTML = `
-    <div class="dash-grid">
-      <div class="dash-card"><div class="n">${(g2/1000).toFixed(2)}</div><div class="label">Grado 2 disponible (ton)</div></div>
-      <div class="dash-card"><div class="n">${(imp/1000).toFixed(2)}</div><div class="label">Impurezas disponibles (ton)</div></div>
-    </div>`;
+  document.getElementById('g2-pipe').innerHTML = `<div class="pipe-seg" style="background:var(--amber);"><span class="n">${(g2/1000).toFixed(2)} ton</span><span class="l">disponible para despachar</span></div>`;
+  document.getElementById('imp-pipe').innerHTML = `<div class="pipe-seg" style="background:var(--amber-3);"><span class="n">${(imp/1000).toFixed(2)} ton</span><span class="l">disponible para despachar</span></div>`;
 }
 
-async function despacharInventarioSecundario(){
+async function despacharGrado2(){
   const nombre = getAdminNombre();
   const msg = document.getElementById('desp-secundario-msg');
   if(!nombre){
-    msg.innerHTML = '<div class="msg err">Ingresa el nombre del jefe de producción arriba (Identificación) antes de despachar.</div>';
+    msg.innerHTML = '<div class="msg err">Ingresa el nombre del jefe de producción arriba antes de despachar.</div>';
     return;
   }
   const g2 = parseFloat(document.getElementById('desp-g2-cantidad').value) || 0;
-  const imp = parseFloat(document.getElementById('desp-imp-cantidad').value) || 0;
-  if(g2<=0 && imp<=0){ msg.innerHTML = '<div class="msg err">Ingresa una cantidad a despachar.</div>'; return; }
+  if(g2<=0){ msg.innerHTML = '<div class="msg err">Ingresa una cantidad de Grado 2 a despachar.</div>'; return; }
   if(g2 > DATA.inventarioSecundario.grado2 + 0.01){ msg.innerHTML = '<div class="msg err">No hay suficiente Grado 2 disponible.</div>'; return; }
-  if(imp > DATA.inventarioSecundario.impurezas + 0.01){ msg.innerHTML = '<div class="msg err">No hay suficientes impurezas disponibles.</div>'; return; }
-  if(!confirm(`¿Confirmas despachar ${g2} kg de Grado 2 y ${imp} kg de impurezas, autorizado por ${nombre}?`)) return;
+  if(!confirm(`¿Confirmas despachar ${g2} kg de Grado 2, autorizado por ${nombre}?`)) return;
 
   DATA.inventarioSecundario.grado2 -= g2;
-  DATA.inventarioSecundario.impurezas -= imp;
-  registrarMovimiento('Despacho de Grado 2 / impurezas', `G2: ${g2} kg · Impurezas: ${imp} kg`, nombre);
+  registrarMovimiento('Despacho de Grado 2', `${g2} kg`, nombre);
   await save();
   document.getElementById('desp-g2-cantidad').value = '';
+  msg.innerHTML = '<div class="msg ok">Despacho de Grado 2 registrado.</div>';
+  render();
+}
+
+async function despacharImpurezas(){
+  const nombre = getAdminNombre();
+  const msg = document.getElementById('desp-secundario-msg');
+  if(!nombre){
+    msg.innerHTML = '<div class="msg err">Ingresa el nombre del jefe de producción arriba antes de despachar.</div>';
+    return;
+  }
+  const imp = parseFloat(document.getElementById('desp-imp-cantidad').value) || 0;
+  if(imp<=0){ msg.innerHTML = '<div class="msg err">Ingresa una cantidad de impurezas a despachar.</div>'; return; }
+  if(imp > DATA.inventarioSecundario.impurezas + 0.01){ msg.innerHTML = '<div class="msg err">No hay suficientes impurezas disponibles.</div>'; return; }
+  if(!confirm(`¿Confirmas despachar ${imp} kg de impurezas, autorizado por ${nombre}?`)) return;
+
+  DATA.inventarioSecundario.impurezas -= imp;
+  registrarMovimiento('Despacho de impurezas', `${imp} kg`, nombre);
+  await save();
   document.getElementById('desp-imp-cantidad').value = '';
-  msg.innerHTML = '<div class="msg ok">Despacho registrado.</div>';
+  msg.innerHTML = '<div class="msg ok">Despacho de impurezas registrado.</div>';
   render();
 }
 
@@ -824,6 +888,7 @@ function render(){
   renderMaestroConversionForm();
   renderCapacidadForm();
   renderFueraDeNorma();
+  renderSeguimientoStats();
   renderLiberacion();
   renderLotesPool();
   renderLotesDespacho();
@@ -834,12 +899,13 @@ function render(){
 }
 
 inicializarAdminTabs();
-inicializarGateSimple('phc-panel-2026', 'acceso-valido-panel');
+inicializarGateSimple('phc2026', 'acceso-valido-panel');
 document.getElementById('btn-guardar-mapa').addEventListener('click', guardarMapaMaestro);
 document.getElementById('btn-guardar-conversion').addEventListener('click', guardarMaestroConversion);
 document.getElementById('btn-guardar-capacidad').addEventListener('click', guardarCapacidadMaestro);
 document.getElementById('btn-edit-cargar').addEventListener('click', cargarBacheParaEditar);
-document.getElementById('btn-despachar-secundario').addEventListener('click', despacharInventarioSecundario);
+document.getElementById('btn-despachar-secundario-g2').addEventListener('click', despacharGrado2);
+document.getElementById('btn-despachar-secundario-imp').addEventListener('click', despacharImpurezas);
 document.getElementById('btn-despachar-local').addEventListener('click', despacharCacaoLocal);
 document.getElementById('btn-liberar-local').addEventListener('click', liberarCacaoLocal);
 document.getElementById('btn-secar-local').addEventListener('click', secarCacaoLocal);

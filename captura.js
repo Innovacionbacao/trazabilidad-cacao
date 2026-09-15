@@ -252,6 +252,7 @@ async function registrarEmpaque(codigo){
   b.peso_final = g1;
   DATA.inventarioSecundario.grado2 += g2;
   DATA.inventarioSecundario.impurezas += imp;
+  b.contadoEnPoolG2 = true;
   b.etapaIdx = 7;
   b.liberado = false;
   b.horaInicioEtapa = horaReal.toISOString();

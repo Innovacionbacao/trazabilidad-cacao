@@ -240,6 +240,31 @@ async function despacharInventarioSecundario(){
   render();
 }
 
+async function recalcularInventarioSecundario(){
+  const nombre = getAdminNombre();
+  const msg = document.getElementById('desp-secundario-msg');
+  if(!nombre){
+    msg.innerHTML = '<div class="msg err">Ingresa el nombre del jefe de producción arriba antes de recalcular.</div>';
+    return;
+  }
+  const pendientes = DATA.baches.filter(b => (b.peso_g2!=null || b.peso_impurezas!=null) && !b.contadoEnPoolG2);
+  if(pendientes.length === 0){
+    msg.innerHTML = '<div class="msg ok">No hay baches empacados pendientes de sumar — el inventario ya está al día.</div>';
+    return;
+  }
+  const sumaG2 = pendientes.reduce((s,b)=>s+(b.peso_g2||0),0);
+  const sumaImp = pendientes.reduce((s,b)=>s+(b.peso_impurezas||0),0);
+  if(!confirm(`Se sumarán ${sumaG2} kg de Grado 2 y ${sumaImp} kg de impurezas al inventario, provenientes de ${pendientes.length} bache(s) empacados antes de esta función. ¿Confirmas?`)) return;
+
+  DATA.inventarioSecundario.grado2 += sumaG2;
+  DATA.inventarioSecundario.impurezas += sumaImp;
+  pendientes.forEach(b => b.contadoEnPoolG2 = true);
+  registrarMovimiento('Recálculo de inventario G2/impurezas', `+${sumaG2} kg G2, +${sumaImp} kg impurezas, desde ${pendientes.length} bache(s): ${pendientes.map(b=>b.codigo).join(', ')}`, nombre);
+  await save();
+  msg.innerHTML = '<div class="msg ok">Inventario recalculado.</div>';
+  render();
+}
+
 function renderLotesPool(){
   const tabsEl = document.getElementById('lv-tabs');
   tabsEl.innerHTML = Object.keys(DENOM).map(k=>
@@ -543,12 +568,13 @@ function render(){
 }
 
 inicializarAdminTabs();
-inicializarGateSimple('Bacao202699', 'acceso-valido-panel');
+inicializarGateSimple('phc-panel-2026', 'acceso-valido-panel');
 document.getElementById('btn-guardar-mapa').addEventListener('click', guardarMapaMaestro);
 document.getElementById('btn-guardar-conversion').addEventListener('click', guardarMaestroConversion);
 document.getElementById('btn-guardar-capacidad').addEventListener('click', guardarCapacidadMaestro);
 document.getElementById('btn-edit-cargar').addEventListener('click', cargarBacheParaEditar);
 document.getElementById('btn-despachar-secundario').addEventListener('click', despacharInventarioSecundario);
+document.getElementById('btn-recalcular-secundario').addEventListener('click', recalcularInventarioSecundario);
 document.getElementById('btn-backup').addEventListener('click', descargarBackup);
 document.getElementById('btn-export-baches').addEventListener('click', exportarBachesCSV);
 document.getElementById('btn-export-lotes').addEventListener('click', exportarLotesCSV);

@@ -341,12 +341,14 @@ function calcularRangoPeriodo(){
   } else if(periodo === 'semestre'){
     desde = new Date(hoy); desde.setDate(desde.getDate()-179);
   } else if(periodo === 'todo'){
-    desde = new Date(2000,0,1);
+    const fechas = DATA.baches.map(b=>b.fecha).filter(Boolean).sort();
+    desde = fechas.length ? new Date(fechas[0]+'T00:00:00') : new Date(hoy);
   } else if(periodo === 'personalizado'){
     const d = document.getElementById('dash-desde').value;
     const h = document.getElementById('dash-hasta').value;
+    const fechasTodas = DATA.baches.map(b=>b.fecha).filter(Boolean).sort();
     return {
-      desde: d || '2000-01-01',
+      desde: d || (fechasTodas.length ? fechasTodas[0] : fechaISOLocal(hoy)),
       hasta: h || fechaISOLocal(hoy)
     };
   } else {

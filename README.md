@@ -263,3 +263,28 @@ acciones de esa página.
 En **Tablero → Inventario** y en el **Dashboard** el saldo de grado 2 e
 impurezas se sigue viendo (de solo lectura) — ahí solo se consulta, no se
 despacha.
+
+## 14. Si el inventario de Grado 2 / impurezas te aparece en 0
+
+Esto pasa si tienes baches que se empacaron **antes** de que existiera este
+inventario común (sección 12) — sus valores de G2/impurezas quedaron
+guardados en cada bache, pero nunca se sumaron al total porque esa lógica no
+existía cuando se empacaron.
+
+Solución: Panel → Lotes de venta → botón **"Recalcular desde baches ya
+empacados"** (junto al despacho de grado 2). Suma automáticamente lo que
+falte, y es seguro presionarlo más de una vez — no duplica, porque marca cada
+bache ya sumado.
+
+## 15. Rediseño visual (tema claro tipo tarjetas)
+
+Se cambió el tema oscuro original por uno claro con tarjetas, inspirado en un
+diseño de referencia. Solo se tocó `style.css` (colores, tipografía,
+bordes/tarjetas) — ningún HTML, ID ni lógica de negocio cambió, así que todo
+sigue funcionando igual. Si prefieres el tema oscuro anterior, avisa y se
+puede restaurar o dejar ambos como opción.
+
+De paso se corrigió un bug: el filtro "Todo el historial" del Dashboard
+arrancaba en el año 2000 fijo, lo que aplastaba las barras del gráfico contra
+cientos de meses vacíos. Ahora arranca desde la fecha del primer bache
+registrado.

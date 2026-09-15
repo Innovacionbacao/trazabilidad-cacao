@@ -252,13 +252,14 @@ function renderInventarioProceso(){
     </div>`;
 
   // En bodega: ya empacado y pesado, cifra real (no estimada). Se descuenta lo ya despachado (parcial o total).
+  // Esto es solo grado 1 (el que sigue el circuito de lote de venta); grado 2
+  // e impurezas viven en su propio inventario común, independiente del bache.
   const enBodega = DATA.baches.filter(b=>b.etapaIdx===7 && kgEnBodegaSinDespachar(b) > 0);
   const totalBodega = enBodega.reduce((s,b)=>s+kgEnBodegaSinDespachar(b),0);
   const porDenomBodega = {ccn51:0, aromatico:0, upia:0};
   enBodega.forEach(b=>{ porDenomBodega[b.denom] += kgEnBodegaSinDespachar(b); });
-  const totalG1 = enBodega.reduce((s,b)=>s+(b.peso_g1||0),0);
-  const totalG2 = enBodega.reduce((s,b)=>s+(b.peso_g2||0),0);
-  const totalImp = enBodega.reduce((s,b)=>s+(b.peso_impurezas||0),0);
+  const totalG2 = DATA.inventarioSecundario.grado2;
+  const totalImp = DATA.inventarioSecundario.impurezas;
 
   document.getElementById('inventario-bodega').innerHTML = `
     <div class="dash-grid">
@@ -266,9 +267,8 @@ function renderInventarioProceso(){
       <div class="dash-card"><div class="n">${(porDenomBodega.ccn51/1000).toFixed(2)}</div><div class="label">CCN-51 (ton)</div></div>
       <div class="dash-card"><div class="n">${(porDenomBodega.aromatico/1000).toFixed(2)}</div><div class="label">Aromático (ton)</div></div>
       <div class="dash-card"><div class="n">${(porDenomBodega.upia/1000).toFixed(2)}</div><div class="label">Upia (ton)</div></div>
-      <div class="dash-card"><div class="n">${(totalG1/1000).toFixed(2)}</div><div class="label">Grado 1 (ton)</div></div>
-      <div class="dash-card"><div class="n">${(totalG2/1000).toFixed(2)}</div><div class="label">Grado 2 (ton)</div></div>
-      <div class="dash-card"><div class="n">${(totalImp/1000).toFixed(2)}</div><div class="label">Impurezas (ton)</div></div>
+      <div class="dash-card"><div class="n">${(totalG2/1000).toFixed(2)}</div><div class="label">Grado 2 en inventario común (ton)</div></div>
+      <div class="dash-card"><div class="n">${(totalImp/1000).toFixed(2)}</div><div class="label">Impurezas en inventario común (ton)</div></div>
     </div>`;
 }
 
@@ -502,6 +502,38 @@ function renderProyeccionBodega(){
 /* ---------- LOTES DE VENTA ---------- */
 
 /* ---------- INVENTARIO (empacado pendiente + lotes de venta + despacho) ---------- */
+function renderInventarioSecundario(){
+  const g2 = DATA.inventarioSecundario.grado2;
+  const imp = DATA.inventarioSecundario.impurezas;
+  document.getElementById('inventario-secundario-resumen').innerHTML = `
+    <div class="dash-grid">
+      <div class="dash-card"><div class="n">${(g2/1000).toFixed(2)}</div><div class="label">Grado 2 disponible (ton)</div></div>
+      <div class="dash-card"><div class="n">${(imp/1000).toFixed(2)}</div><div class="label">Impurezas disponibles (ton)</div></div>
+    </div>`;
+}
+
+async function despacharInventarioSecundario(){
+  const g2 = parseFloat(document.getElementById('desp-g2-cantidad').value) || 0;
+  const imp = parseFloat(document.getElementById('desp-imp-cantidad').value) || 0;
+  const encargado = document.getElementById('desp-secundario-encargado').value.trim();
+  const msg = document.getElementById('desp-secundario-msg');
+
+  if(g2<=0 && imp<=0){ msg.innerHTML = '<div class="msg err">Ingresa una cantidad a despachar.</div>'; return; }
+  if(!encargado){ msg.innerHTML = '<div class="msg err">Escribe el encargado del despacho.</div>'; return; }
+  if(g2 > DATA.inventarioSecundario.grado2 + 0.01){ msg.innerHTML = '<div class="msg err">No hay suficiente Grado 2 disponible.</div>'; return; }
+  if(imp > DATA.inventarioSecundario.impurezas + 0.01){ msg.innerHTML = '<div class="msg err">No hay suficientes impurezas disponibles.</div>'; return; }
+  if(!confirm(`¿Confirmas despachar ${g2} kg de Grado 2 y ${imp} kg de impurezas, a cargo de ${encargado}?`)) return;
+
+  DATA.inventarioSecundario.grado2 -= g2;
+  DATA.inventarioSecundario.impurezas -= imp;
+  registrarMovimiento('Despacho de Grado 2 / impurezas', `G2: ${g2} kg · Impurezas: ${imp} kg`, encargado);
+  await save();
+  document.getElementById('desp-g2-cantidad').value = '';
+  document.getElementById('desp-imp-cantidad').value = '';
+  msg.innerHTML = '<div class="msg ok">Despacho registrado.</div>';
+  render();
+}
+
 function renderInventarioEmpacado(){
   const pendientes = DATA.baches.filter(b=>b.etapaIdx===7 && disponibleLV(b) > 0)
     .sort((a,b)=> new Date(b.horaInicioEtapa) - new Date(a.horaInicioEtapa));
@@ -512,7 +544,7 @@ function renderInventarioEmpacado(){
     return `
     <div class="lv-history-item">
       <div><span class="tag" style="background:${DENOM[b.denom].color}">${DENOM[b.denom].label}</span> <span class="mono" style="margin-left:8px;">${b.codigo}</span></div>
-      <div class="op-meta">Disponible: ${disp} kg secos${parcial} · ${Math.floor(disp/69)} sacos (G1 ${b.peso_g1 ?? '—'}, G2 ${b.peso_g2 ?? '—'}, impurezas ${b.peso_impurezas ?? 0})</div>
+      <div class="op-meta">Disponible: ${disp} kg secos (grado 1)${parcial} · ${Math.floor(disp/69)} sacos · G2 ${b.peso_g2 ?? 0} kg e impurezas ${b.peso_impurezas ?? 0} kg ya en inventario común</div>
       <div class="op-meta">${b.liberado ? `Liberado por ${b.liberadoPor}` : 'Pendiente de liberación (Administrador)'}</div>
     </div>`;
   }).join('') : '<div class="empty">No hay baches empacados pendientes de lote de venta.</div>';
@@ -581,11 +613,12 @@ function render(){
   renderProyeccion();
   renderProyeccionBodega();
   renderInventarioEmpacado();
+  renderInventarioSecundario();
   renderLotesHistorial();
 }
 
 inicializarTabs();
-inicializarGateSimple('phc2026', 'acceso-valido-tablero');
+inicializarGateSimple('phc-tablero-2026', 'acceso-valido-tablero');
 document.getElementById('trace-f-denom').addEventListener('change', render);
 document.getElementById('trace-f-desde').addEventListener('change', render);
 document.getElementById('trace-f-hasta').addEventListener('change', render);
@@ -602,5 +635,6 @@ document.getElementById('dash-hasta').addEventListener('change', render);
 document.getElementById('dash-denom').addEventListener('change', render);
 document.getElementById('btn-export-dashboard-csv').addEventListener('click', exportarDashboardCSV);
 document.getElementById('btn-print-dashboard').addEventListener('click', imprimirDashboard);
+document.getElementById('btn-despachar-secundario').addEventListener('click', despacharInventarioSecundario);
 
 load();

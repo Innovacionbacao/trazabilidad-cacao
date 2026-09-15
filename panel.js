@@ -94,17 +94,26 @@ function renderFueraDeNorma(){
     .map(b=>{
       const horas = (now - new Date(b.horaInicioEtapa))/3600000;
       const lim = limiteHoras(b.etapaIdx);
-      return {b, horas, lim};
+      const excedido = lim!=null && horas > lim;
+      return {b, horas, lim, excedido};
     })
-    .filter(x=>x.lim!=null && x.horas > x.lim)
-    .sort((a,b2)=> (b2.horas-b2.lim) - (a.horas-a.lim));
+    .sort((a,b2)=>{
+      if(a.excedido !== b2.excedido) return a.excedido ? -1 : 1;
+      return (b2.horas-(b2.lim||0)) - (a.horas-(a.lim||0));
+    });
 
   const el = document.getElementById('admin-fuera-norma');
-  el.innerHTML = lista.length ? lista.map(x=>`
+  el.innerHTML = lista.length ? lista.map(x=>{
+    const estadoTxt = x.excedido
+      ? `<span class="cap-text excedido">excede por ${(x.horas-x.lim).toFixed(1)} h</span>`
+      : (x.lim!=null ? `<span class="cap-text" style="color:var(--ok);">dentro de tiempo (límite ${x.lim} h)</span>` : `<span class="op-meta">sin límite de tiempo</span>`);
+    return `
     <div class="lv-history-item">
       <div><span class="tag" style="background:${DENOM[x.b.denom].color}">${DENOM[x.b.denom].label}</span> <span class="mono" style="margin-left:8px;">${x.b.codigo}</span></div>
-      <div class="op-meta">${STAGES[x.b.etapaIdx]} · ${x.horas.toFixed(1)} h (límite ${x.lim} h, excede por ${(x.horas-x.lim).toFixed(1)} h)</div>
-    </div>`).join('') : '<div class="empty">No hay baches fuera de norma actualmente.</div>';
+      <div class="op-meta">${STAGES[x.b.etapaIdx]} · ${x.horas.toFixed(1)} h en etapa</div>
+      <div>${estadoTxt}</div>
+    </div>`;
+  }).join('') : '<div class="empty">No hay baches activos actualmente.</div>';
 }
 
 async function liberarBache(codigo){
@@ -130,7 +139,7 @@ function renderLiberacion(){
   el.innerHTML = pendientes.length ? pendientes.map(b=>`
     <div class="lv-history-item">
       <div><span class="tag" style="background:${DENOM[b.denom].color}">${DENOM[b.denom].label}</span> <span class="mono" style="margin-left:8px;">${b.codigo}</span></div>
-      <div class="op-meta">${b.peso_final} kg secos (G1 ${b.peso_g1 ?? '—'}, G2 ${b.peso_g2 ?? '—'})</div>
+      <div class="op-meta">${b.peso_final} kg secos de grado 1 (G2 ${b.peso_g2 ?? 0} kg e impurezas ${b.peso_impurezas ?? 0} kg ya en inventario común)</div>
       <button onclick="liberarBache('${b.codigo}')">Liberar para despacho</button>
     </div>`).join('') : '<div class="empty">No hay baches pendientes de liberación.</div>';
 }
@@ -214,7 +223,7 @@ function renderLotesPool(){
       const disp = disponibleLV(b);
       if(checked) totalSel += disp;
       const parcial = disp < b.peso_final ? ` · ${b.peso_final-disp} kg ya en otro lote` : '';
-      return `<div class="lv-pool-item"><input type="checkbox" ${checked?'checked':''} onchange="toggleSeleccionLV('${b.codigo}')"><span class="mono">${b.codigo}</span><span class="op-meta">${disp} kg disponibles (G1 ${b.peso_g1 ?? '—'}, G2 ${b.peso_g2 ?? '—'}) · ${Math.floor(disp/69)} sacos${parcial}</span></div>`;
+      return `<div class="lv-pool-item"><input type="checkbox" ${checked?'checked':''} onchange="toggleSeleccionLV('${b.codigo}')"><span class="mono">${b.codigo}</span><span class="op-meta">${disp} kg de grado 1 disponibles · ${Math.floor(disp/69)} sacos${parcial}</span></div>`;
     }).join('');
     const excede = totalSel > MAX_KG_LOTE_VENTA;
     const avisoTope = excede
@@ -267,7 +276,12 @@ function restaurarBackup(ev){
         msg.innerHTML = '<div class="msg err">El archivo no parece un backup válido.</div>';
         return;
       }
-      DATA = Object.assign({baches:[],lotes:[],lvConsecutivo:0,mapaMaestro:DATA.mapaMaestro,maestroConversion:DATA.maestroConversion}, parsed);
+      DATA = Object.assign({
+        baches:[], lotes:[], lvConsecutivo:0,
+        mapaMaestro:DATA.mapaMaestro, maestroConversion:DATA.maestroConversion,
+        capacidadMaestro:DATA.capacidadMaestro, inventarioSecundario:DATA.inventarioSecundario,
+        movimientos:[]
+      }, parsed);
       await save();
       msg.innerHTML = '<div class="msg ok">Backup restaurado correctamente.</div>';
       render();
@@ -305,9 +319,11 @@ function baseBache(codStr, denom, etapaIdx, horasEnEtapa, pesoFresco, bascula, p
 }
 
 async function cargarEjemplo(){
-  const c1 = baseBache(daysAgoCodStr(7), 'ccn51', 7, 96, 980, 'B-1001', 850, 'LV-0001', 700, 150, 20, true);
-  const c2 = baseBache(daysAgoCodStr(6), 'ccn51', 7, 72, 1030, 'B-1002', 900, 'LV-0001', 750, 150, 25, true);
-  const c3 = baseBache(daysAgoCodStr(5), 'aromatico', 7, 48, 890, 'B-1003', 780, null, 650, 130, 15, false);
+  // peso_final = solo grado 1 (lo que sigue el circuito de lote de venta);
+  // el grado 2 y las impurezas de cada uno se suman más abajo al inventario común.
+  const c1 = baseBache(daysAgoCodStr(7), 'ccn51', 7, 96, 980, 'B-1001', 700, 'LV-0001', 700, 150, 20, true);
+  const c2 = baseBache(daysAgoCodStr(6), 'ccn51', 7, 72, 1030, 'B-1002', 750, 'LV-0001', 750, 150, 25, true);
+  const c3 = baseBache(daysAgoCodStr(5), 'aromatico', 7, 48, 890, 'B-1003', 650, null, 650, 130, 15, false);
   const c4 = baseBache(daysAgoCodStr(4), 'upia', 2, 60, 2500, 'B-1004', null, null); // excedido: >48h en F. anaeróbica
   const c5 = baseBache(daysAgoCodStr(3), 'ccn51', 3, 20, 1500, 'B-1005', null, null);
   c5.aireacion[0] = {dia:1, hecho:true, hora:hoursAgoIso(15)};
@@ -318,6 +334,10 @@ async function cargarEjemplo(){
   // 'ccn51' del día 0 ya usado (c8): usamos otra denominación para el noveno ejemplo, sin choque de código.
 
   DATA.baches = [c1,c2,c3,c4,c5,c6,c7,c8,c9];
+  DATA.inventarioSecundario = {
+    grado2: c1.peso_g2 + c2.peso_g2 + c3.peso_g2,
+    impurezas: c1.peso_impurezas + c2.peso_impurezas + c3.peso_impurezas
+  };
   DATA.lotes = [{
     codigo:'LV-0001', denom:'ccn51', baches:[c1.codigo,c2.codigo],
     total_kg: c1.peso_final+c2.peso_final, total_g1: c1.peso_g1+c2.peso_g1, total_g2: c1.peso_g2+c2.peso_g2, total_impurezas: c1.peso_impurezas+c2.peso_impurezas,
@@ -488,7 +508,7 @@ function render(){
 }
 
 inicializarAdminTabs();
-inicializarGateSimple('phc2026', 'acceso-valido-panel');
+inicializarGateSimple('phc-panel-2026', 'acceso-valido-panel');
 document.getElementById('btn-guardar-mapa').addEventListener('click', guardarMapaMaestro);
 document.getElementById('btn-guardar-conversion').addEventListener('click', guardarMaestroConversion);
 document.getElementById('btn-guardar-capacidad').addEventListener('click', guardarCapacidadMaestro);

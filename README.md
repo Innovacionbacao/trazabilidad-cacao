@@ -236,3 +236,19 @@ superior.
   inicializarGateSimple('phc-panel-2026', 'acceso-valido-panel');
   ```
   Cámbialas por las tuyas antes de repartir el acceso a cada rol.
+
+## 12. Grado 2 e impurezas: inventario común
+
+Antes, el grado 2 y las impurezas quedaban "atados" al bache que los generó,
+igual que el grado 1. Ahora no: solo el **grado 1** sigue el circuito formal
+de bache → lote de venta → despacho (con su tope de 25 ton, sus sacos, etc.).
+
+El **grado 2** y las **impurezas** se suman automáticamente a un inventario
+común apenas se registra el empaque de un bache (en Captura), y desde ahí se
+despachan por cantidad libre — sin necesidad de escoger un bache ni un lote
+de venta. Está en Tablero → Inventario, al final de la página.
+
+También en Panel → Seguimiento: la lista ahora muestra **todos** los baches
+activos (no solo los que exceden el tiempo), con su estado en verde (dentro
+de tiempo) o rojo (excedido), para tener visión completa de qué hay en
+proceso.

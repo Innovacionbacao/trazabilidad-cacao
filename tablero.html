@@ -166,6 +166,18 @@
       <p class="block-title">Lotes de venta generados</p>
       <div class="lv-history" id="lv-history"></div>
     </div>
+
+    <div class="section-gap">
+      <p class="block-title">Grado 2 e impurezas (inventario común, sin bache ni lote)</p>
+      <div id="inventario-secundario-resumen" style="margin-bottom:16px;"></div>
+      <div class="mapa-form" style="max-width:600px;">
+        <div class="field"><label>Despachar Grado 2 (kg)</label><input type="number" id="desp-g2-cantidad" min="0" step="0.1"></div>
+        <div class="field"><label>Despachar impurezas (kg)</label><input type="number" id="desp-imp-cantidad" min="0" step="0.1"></div>
+        <div class="field"><label>Encargado</label><input type="text" id="desp-secundario-encargado"></div>
+      </div>
+      <div id="desp-secundario-msg"></div>
+      <button id="btn-despachar-secundario">Registrar despacho</button>
+    </div>
   </div>
 
 </main>

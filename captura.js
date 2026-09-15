@@ -246,11 +246,16 @@ async function registrarEmpaque(codigo){
   b.peso_g1 = g1;
   b.peso_g2 = g2;
   b.peso_impurezas = imp;
-  b.peso_final = pesoFinal;
+  // Solo el grado 1 sigue el circuito formal de bache → lote de venta → despacho.
+  // El grado 2 y las impurezas van directo a un inventario común de bodega,
+  // sin quedar amarrados a este bache ni a ningún lote de venta.
+  b.peso_final = g1;
+  DATA.inventarioSecundario.grado2 += g2;
+  DATA.inventarioSecundario.impurezas += imp;
   b.etapaIdx = 7;
   b.liberado = false;
   b.horaInicioEtapa = horaReal.toISOString();
-  registrarMovimiento('Empaque registrado', `Bache ${b.codigo}: G1 ${g1} kg, G2 ${g2} kg, impurezas ${imp} kg (total ${pesoFinal} kg)`, operario);
+  registrarMovimiento('Empaque registrado', `Bache ${b.codigo}: G1 ${g1} kg (a lote de venta) · G2 ${g2} kg e impurezas ${imp} kg (a inventario común)`, operario);
   opSeleccionado = null;
   await save();
   render();

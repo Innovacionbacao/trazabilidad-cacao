@@ -63,6 +63,10 @@ let DATA = {
     almacenTotalTon: 200,
     almacenM2PorTon: 4/6
   },
+  // Grado 2 e impurezas: se acumulan en bodega como un inventario común, sin
+  // necesidad de rastrear de qué bache o lote de venta salieron. Se despachan
+  // por cantidad, no por bache.
+  inventarioSecundario: { grado2: 0, impurezas: 0 },
   movimientos: [],
   adminNombre: ''
 };

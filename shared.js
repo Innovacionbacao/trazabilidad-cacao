@@ -71,12 +71,15 @@ let DATA = {
   // completos; lo que sobra de un bulto incompleto se guarda aquí por
   // denominación y se suma al siguiente bache que se empaque de esa misma
   // denominación, para consolidarlo en un bulto completo.
-  pesoBulto: 69,
+  pesoBulto: { ccn51: 69, aromatico: 69, upia: 50 },
   remanenteG1: { ccn51: 0, aromatico: 0, upia: 0 },
-  // Cacao LOCAL: entra fresco (como cualquier fruto), así que cuenta como "en
-  // proceso" hasta que el jefe de producción lo libera; solo entonces pasa al
-  // inventario final. No pasa por ninguna etapa de la planta.
-  cacaoLocal: { total: 0, enProceso: 0, movimientos: [] },
+  // Cacao LOCAL: entra fresco (como cualquier fruto) y también pierde peso al
+  // secarse, así que NO se cuenta junto con los baches normales en los
+  // totales del Dashboard. Tiene su propio ciclo de 3 pasos, todos aparte:
+  //   enProceso (fresco, recién entrado)
+  //   -> secoPendienteLiberar (ya seco, el líder lo pasó de fresco a seco)
+  //   -> total (liberado por el jefe de producción, disponible para despacho)
+  cacaoLocal: { enProceso: 0, secoPendienteLiberar: 0, total: 0, movimientos: [] },
   movimientos: [],
   adminNombre: ''
 };
@@ -106,6 +109,11 @@ function limiteHoras(idx, denom){
 }
 
 function pesoRelevante(b){ return b.peso_final!=null ? b.peso_final : b.peso_fresco; }
+
+function pesoBultoDe(denom){
+  if(typeof DATA.pesoBulto === 'number') return DATA.pesoBulto; // respaldo por si viene de un backup viejo
+  return (DATA.pesoBulto && DATA.pesoBulto[denom]) || 69;
+}
 
 function kgAsignadoLV(b){
   return (b.lvAsignaciones||[]).reduce((s,a)=>s+a.kg,0);

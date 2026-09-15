@@ -347,3 +347,17 @@ Nota: al revertir con "Retroceder etapa" un bache que ya estaba en Almacenado, a
 4. **Remanente de grado 1 ahora se suma automáticamente**: en el empaque ya no se pide "bultos llenados" por separado — se pide el **grado 1 pesado de este bache**, y el sistema suma el remanente pendiente de la misma denominación antes de calcular cuántos bultos completos salen y cuánto sobra. Ya no depende de que alguien haga la suma a mano.
 
 5. **Cacao LOCAL ahora es "fresco" hasta que se libera**: al registrarlo en Captura queda como pendiente de liberación (no aparece en el inventario final). En Panel → Lotes de venta hay una sección para liberarlo (con el total pendiente pre-cargado, editable para liberar solo una parte); solo después de liberado aparece en Tablero → Inventario y puede despacharse.
+
+## 20. Correcciones de esta ronda
+
+1. **Peso por bulto ahora es por denominación**: CCN-51 y Aromático a 69 kg, Upia a 50 kg (editable en Panel → Configuración → Maestro de capacidad, ahora con 3 campos). El número de sacos sigue guardándose en cada bache (`b.bultos`) y se ve en Trazabilidad, Editar baches, Liberación e Inventario.
+
+2. **Cacao LOCAL con etapa de secado**: como el cacao LOCAL entra fresco y también pierde peso al secarse, ahora tiene 3 pasos en vez de 2:
+   - **Entra fresco** (Captura) → queda "pendiente de secar".
+   - **Se seca** (Panel → Lotes de venta → "Secar cacao LOCAL"): el líder registra cuánto fresco tomó y cuánto pesó ya seco → pasa a "pendiente de liberación".
+   - **Se libera** (mismo lugar, sección "Liberar cacao LOCAL"): el jefe de producción libera lo ya seco → recién ahí aparece en Tablero → Inventario, disponible para despacho.
+   Este cacao **no se suma** en ningún KPI del Dashboard (fruto fresco ingresado, seco procesado, etc.) — es un inventario totalmente aparte de los baches normales.
+
+3. **Botón "Devolver a liberación" más visible**: en Panel → Lotes de venta, ahora aparece en su propia línea con texto completo, debajo de la información de cada bache liberado (antes era un botón pequeño dentro de la misma fila, fácil de pasar por alto).
+
+4. **Nuevo total en Inventario** ("Total real en bodega") al principio de la pestaña, calculado exactamente igual que el "Ton en bodega ahora" del Dashboard — sirve para comparar directamente. Si veías 41.12 en Dashboard y 41 en Inventario antes, probablemente estabas viendo una cifra distinta (como el remanente, que se muestra en kg con 1 decimal, no en toneladas); con este total nuevo puedes verificar que ambos coinciden exactamente.

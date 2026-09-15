@@ -257,7 +257,7 @@ async function registrarEmpaque(codigo){
     return;
   }
 
-  const pesoBulto = DATA.pesoBulto;
+  const pesoBulto = pesoBultoDe(b.denom);
   const remanentePrevio = DATA.remanenteG1[b.denom] || 0;
   // El remanente de baches anteriores de esta misma denominación se suma
   // automáticamente al grado 1 recién pesado, antes de calcular los bultos.
@@ -401,7 +401,7 @@ function renderOpCard(b){
         <button class="secondary" onclick="event.stopPropagation(); registrarVolteo('${b.codigo}')">↻ Registrar volteo</button>`;
     }
     if(b.etapaIdx === 6){
-      const pesoBulto = DATA.pesoBulto;
+      const pesoBulto = pesoBultoDe(b.denom);
       const remanentePrevio = DATA.remanenteG1[b.denom] || 0;
       const minG1 = Math.round(b.peso_fresco * 0.20);
       const maxG1 = Math.round(b.peso_fresco * 0.45);

@@ -572,6 +572,14 @@ function renderCacaoLocalTablero(){
     </div>`;
 }
 
+function renderTotalBodega(){
+  const totalKg = DATA.baches.filter(b=>b.etapaIdx===7).reduce((s,b)=>s+kgEnBodegaSinDespachar(b),0);
+  document.getElementById('inventario-total-bodega').innerHTML = `
+    <div class="dash-grid">
+      <div class="dash-card kpi"><div class="n">${(totalKg/1000).toFixed(2)}</div><div class="label">Ton reales en bodega (grado 1, todos los estados)</div></div>
+    </div>`;
+}
+
 function renderInventarioEmpacado(){
   const porLiberar = DATA.baches.filter(b=>b.etapaIdx===7 && !b.liberado)
     .sort((a,b)=> new Date(b.horaInicioEtapa) - new Date(a.horaInicioEtapa));
@@ -590,7 +598,7 @@ function renderInventarioEmpacado(){
     return `
     <div class="lv-history-item">
       <div><span class="tag" style="background:${DENOM[b.denom].color}">${DENOM[b.denom].label}</span> <span class="mono" style="margin-left:8px;">${b.codigo}</span></div>
-      <div class="op-meta">Disponible sin asignar: ${disp} kg secos${parcial} · ${Math.floor(disp/DATA.pesoBulto)} sacos · liberado por ${b.liberadoPor||'—'}</div>
+      <div class="op-meta">Disponible sin asignar: ${disp} kg secos${parcial} · ${Math.floor(disp/pesoBultoDe(b.denom))} sacos · liberado por ${b.liberadoPor||'—'}</div>
     </div>`;
   }).join('') : '<div class="empty">No hay baches liberados pendientes de asignar a un lote de venta.</div>';
 
@@ -659,6 +667,7 @@ function render(){
   renderProyeccionBodega();
   renderInventarioEmpacado();
   renderInventarioSecundario();
+  renderTotalBodega();
   renderRemanenteG1();
   renderCacaoLocalTablero();
   renderDespachosTab();

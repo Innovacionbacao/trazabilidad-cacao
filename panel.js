@@ -65,7 +65,9 @@ function renderCapacidadForm(){
   document.getElementById('cap-secado-total').value = p['Secado'].total;
   document.getElementById('cap-secado-kg').value = p['Secado'].capKg;
   document.getElementById('cap-almacen-ton').value = DATA.capacidadMaestro.almacenTotalTon;
-  document.getElementById('cap-peso-bulto').value = DATA.pesoBulto;
+  document.getElementById('cap-peso-bulto-ccn51').value = pesoBultoDe('ccn51');
+  document.getElementById('cap-peso-bulto-aromatico').value = pesoBultoDe('aromatico');
+  document.getElementById('cap-peso-bulto-upia').value = pesoBultoDe('upia');
 }
 
 async function guardarCapacidadMaestro(){
@@ -82,8 +84,12 @@ async function guardarCapacidadMaestro(){
     almacenTotalTon: num('cap-almacen-ton'),
     almacenM2PorTon: DATA.capacidadMaestro.almacenM2PorTon
   };
-  DATA.pesoBulto = num('cap-peso-bulto') || 69;
-  registrarMovimiento('Maestro de capacidad actualizado', JSON.stringify(DATA.capacidadMaestro) + ` · peso por bulto: ${DATA.pesoBulto} kg`, nombre);
+  DATA.pesoBulto = {
+    ccn51: num('cap-peso-bulto-ccn51') || 69,
+    aromatico: num('cap-peso-bulto-aromatico') || 69,
+    upia: num('cap-peso-bulto-upia') || 50
+  };
+  registrarMovimiento('Maestro de capacidad actualizado', JSON.stringify(DATA.capacidadMaestro) + ` · peso por bulto: ${JSON.stringify(DATA.pesoBulto)}`, nombre);
   await save();
   render();
 }
@@ -275,7 +281,7 @@ async function crearLoteVenta(){
     totalG2 += (u.b.peso_g2||0)*frac;
     totalImp += (u.b.peso_impurezas||0)*frac;
   });
-  const detalleBultos = usados.map(u=>({codigo:u.b.codigo, bultos:Math.floor(u.kg/DATA.pesoBulto), kg:Math.round(u.kg)}));
+  const detalleBultos = usados.map(u=>({codigo:u.b.codigo, bultos:Math.floor(u.kg/pesoBultoDe(u.b.denom)), kg:Math.round(u.kg)}));
 
   DATA.lotes.push({
     codigo, denom:lvTabActivo, baches:usados.map(u=>u.b.codigo),
@@ -346,17 +352,47 @@ function renderLotesDespacho(){
 
 function renderCacaoLocalPanel(){
   const enProceso = DATA.cacaoLocal.enProceso || 0;
+  const secoPendiente = DATA.cacaoLocal.secoPendienteLiberar || 0;
+
   document.getElementById('cacao-local-enproceso-resumen').innerHTML = `
     <div class="dash-grid">
-      <div class="dash-card"><div class="n">${enProceso.toFixed(1)}</div><div class="label">Cacao LOCAL fresco, pendiente de liberación (kg)</div></div>
+      <div class="dash-card"><div class="n">${enProceso.toFixed(1)}</div><div class="label">Cacao LOCAL fresco, pendiente de secar (kg)</div></div>
+    </div>`;
+  const campoFresco = document.getElementById('secar-local-fresco');
+  if(document.activeElement !== campoFresco) campoFresco.value = enProceso > 0 ? enProceso : '';
+
+  document.getElementById('cacao-local-secopendiente-resumen').innerHTML = `
+    <div class="dash-grid">
+      <div class="dash-card"><div class="n">${secoPendiente.toFixed(1)}</div><div class="label">Cacao LOCAL ya seco, pendiente de liberación (kg)</div></div>
     </div>`;
   const campoLib = document.getElementById('lib-local-cantidad');
-  if(document.activeElement !== campoLib) campoLib.value = enProceso > 0 ? enProceso : '';
+  if(document.activeElement !== campoLib) campoLib.value = secoPendiente > 0 ? secoPendiente : '';
 
   document.getElementById('cacao-local-resumen').innerHTML = `
     <div class="dash-grid">
       <div class="dash-card"><div class="n">${(DATA.cacaoLocal.total||0).toFixed(1)}</div><div class="label">Cacao LOCAL disponible, ya liberado (kg)</div></div>
     </div>`;
+}
+
+async function secarCacaoLocal(){
+  const nombre = getAdminNombre();
+  const msg = document.getElementById('secar-local-msg');
+  if(!nombre){
+    msg.innerHTML = '<div class="msg err">Ingresa el nombre del jefe de producción arriba antes de continuar.</div>';
+    return;
+  }
+  const fresco = parseFloat(document.getElementById('secar-local-fresco').value) || 0;
+  const seco = parseFloat(document.getElementById('secar-local-seco').value) || 0;
+  if(fresco<=0 || seco<=0){ msg.innerHTML = '<div class="msg err">Ingresa la cantidad fresca procesada y el peso seco resultante.</div>'; return; }
+  if(fresco > (DATA.cacaoLocal.enProceso||0) + 0.01){ msg.innerHTML = '<div class="msg err">No hay suficiente cacao LOCAL fresco pendiente de secar.</div>'; return; }
+  if(!confirm(`¿Confirmas pasar ${fresco} kg de cacao LOCAL fresco a ${seco} kg ya seco, registrado por ${nombre}?`)) return;
+  DATA.cacaoLocal.enProceso -= fresco;
+  DATA.cacaoLocal.secoPendienteLiberar += seco;
+  registrarMovimiento('Cacao LOCAL secado', `${fresco} kg fresco → ${seco} kg seco`, nombre);
+  await save();
+  document.getElementById('secar-local-seco').value = '';
+  msg.innerHTML = '<div class="msg ok">Registrado.</div>';
+  render();
 }
 
 async function liberarCacaoLocal(){
@@ -368,9 +404,9 @@ async function liberarCacaoLocal(){
   }
   const cant = parseFloat(document.getElementById('lib-local-cantidad').value) || 0;
   if(cant<=0){ msg.innerHTML = '<div class="msg err">Ingresa una cantidad a liberar.</div>'; return; }
-  if(cant > (DATA.cacaoLocal.enProceso||0) + 0.01){ msg.innerHTML = '<div class="msg err">No hay suficiente cacao LOCAL pendiente de liberación.</div>'; return; }
-  if(!confirm(`¿Confirmas liberar ${cant} kg de cacao LOCAL al inventario final, autorizado por ${nombre}?`)) return;
-  DATA.cacaoLocal.enProceso -= cant;
+  if(cant > (DATA.cacaoLocal.secoPendienteLiberar||0) + 0.01){ msg.innerHTML = '<div class="msg err">No hay suficiente cacao LOCAL seco pendiente de liberación.</div>'; return; }
+  if(!confirm(`¿Confirmas liberar ${cant} kg de cacao LOCAL (ya seco) al inventario final, autorizado por ${nombre}?`)) return;
+  DATA.cacaoLocal.secoPendienteLiberar -= cant;
   DATA.cacaoLocal.total += cant;
   registrarMovimiento('Cacao LOCAL liberado', `${cant} kg`, nombre);
   await save();
@@ -496,9 +532,16 @@ function renderLotesPool(){
       if(checked) totalSel += disp;
       const parcial = disp < b.peso_final ? ` · ${b.peso_final-disp} kg ya en otro lote` : '';
       const btnDevolver = kgAsignadoLV(b)===0
-        ? `<button class="secondary" onclick="event.stopPropagation(); devolverALiberacion('${b.codigo}')" style="padding:4px 10px; min-height:auto; font-size:12px;">↩ Devolver a liberación</button>`
-        : '';
-      return `<div class="lv-pool-item"><input type="checkbox" ${checked?'checked':''} onchange="toggleSeleccionLV('${b.codigo}')"><span class="mono">${b.codigo}</span><span class="op-meta">${disp} kg de grado 1 disponibles · ${Math.floor(disp/DATA.pesoBulto)} sacos${parcial}</span>${btnDevolver}</div>`;
+        ? `<button class="secondary" onclick="devolverALiberacion('${b.codigo}')" style="margin-top:8px;">↩ Devolver a liberación (antes de liberar)</button>`
+        : `<div class="op-meta" style="margin-top:6px;">Ya tiene grado 1 asignado a un lote de venta — no se puede devolver desde aquí.</div>`;
+      return `<div class="lv-pool-item" style="flex-direction:column; align-items:stretch;">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <input type="checkbox" ${checked?'checked':''} onchange="toggleSeleccionLV('${b.codigo}')">
+          <span class="mono">${b.codigo}</span>
+          <span class="op-meta">${disp} kg de grado 1 disponibles · ${Math.floor(disp/pesoBultoDe(b.denom))} sacos${parcial}</span>
+        </div>
+        ${btnDevolver}
+      </div>`;
     }).join('');
     const excede = totalSel > MAX_KG_LOTE_VENTA;
     const avisoTope = excede
@@ -618,8 +661,8 @@ async function cargarEjemplo(){
     codigo:'LV-0001', denom:'ccn51', baches:[c1.codigo,c2.codigo],
     total_kg: c1.peso_final+c2.peso_final, total_g1: c1.peso_g1+c2.peso_g1, total_g2: c1.peso_g2+c2.peso_g2, total_impurezas: c1.peso_impurezas+c2.peso_impurezas,
     detalleBultos: [
-      {codigo:c1.codigo, bultos: Math.floor(c1.peso_final/DATA.pesoBulto), kg:c1.peso_final},
-      {codigo:c2.codigo, bultos: Math.floor(c2.peso_final/DATA.pesoBulto), kg:c2.peso_final}
+      {codigo:c1.codigo, bultos: Math.floor(c1.peso_final/pesoBultoDe('ccn51')), kg:c1.peso_final},
+      {codigo:c2.codigo, bultos: Math.floor(c2.peso_final/pesoBultoDe('ccn51')), kg:c2.peso_final}
     ],
     generadoPor: 'Ejemplo Demo', fecha: hoursAgoIso(60),
     despacho: null
@@ -799,6 +842,7 @@ document.getElementById('btn-edit-cargar').addEventListener('click', cargarBache
 document.getElementById('btn-despachar-secundario').addEventListener('click', despacharInventarioSecundario);
 document.getElementById('btn-despachar-local').addEventListener('click', despacharCacaoLocal);
 document.getElementById('btn-liberar-local').addEventListener('click', liberarCacaoLocal);
+document.getElementById('btn-secar-local').addEventListener('click', secarCacaoLocal);
 document.getElementById('btn-recalcular-secundario').addEventListener('click', recalcularInventarioSecundario);
 document.getElementById('btn-backup').addEventListener('click', descargarBackup);
 document.getElementById('btn-export-baches').addEventListener('click', exportarBachesCSV);

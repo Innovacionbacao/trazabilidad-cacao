@@ -427,9 +427,7 @@ function renderCapTable(){
 }
 
 /* ---------- OPERARIO (identificación de quien usa la tableta) ---------- */
-function getOperario(){
-  try{ return localStorage.getItem('operario-nombre') || ''; }catch(e){ return ''; }
-}
+function getOperario(){ return document.getElementById('operario-nombre').value.trim(); }
 
 /* ---------- RENDER Y ARRANQUE DE ESTA PÁGINA ---------- */
 function render(){
@@ -450,82 +448,10 @@ document.getElementById('f-directo').addEventListener('change', updateCodigoPrev
 document.getElementById('btn-registrar').addEventListener('click', registrarBache);
 document.getElementById('f-fecha').value = toLocalInputValue(new Date());
 
-/* ---------- Ventana inicial de acceso (operario + clave) ---------- */
-// La clave es solo para que nadie entre por accidente, igual que en la app de
-// mantenimiento — no sirve para guardar secretos reales. Cámbiala aquí y avísale
-// al equipo cuando la cambies.
-const CLAVE_ACCESO_PANTALLA = '202699';
-
-function actualizarDisplayOperario(){
-  document.getElementById('operario-display-nombre').textContent = getOperario() || '—';
-}
-
-function mostrarGate(prellenarNombre){
-  document.getElementById('gate-operario').value = prellenarNombre || '';
-  document.getElementById('gate-clave').value = '';
-  document.getElementById('gate-msg').innerHTML = '';
-  document.getElementById('gate-overlay').style.display = 'flex';
-  document.getElementById('gate-operario').focus();
-}
-function ocultarGate(){
-  document.getElementById('gate-overlay').style.display = 'none';
-}
-
-function verificarAcceso(){
-  const yaValidado = (()=>{ try{ return localStorage.getItem('acceso-valido') === 'si'; }catch(e){ return false; } })();
-  if(yaValidado && getOperario()){
-    actualizarDisplayOperario();
-  } else {
-    mostrarGate(getOperario());
-  }
-}
-
-document.getElementById('gate-btn').addEventListener('click', ()=>{
-  const nombre = document.getElementById('gate-operario').value.trim();
-  const clave = document.getElementById('gate-clave').value.trim();
-  const msg = document.getElementById('gate-msg');
-  if(!nombre){ msg.innerHTML = '<div class="msg err">Escribe tu nombre.</div>'; return; }
-  if(clave !== CLAVE_ACCESO_PANTALLA){ msg.innerHTML = '<div class="msg err">Clave incorrecta.</div>'; return; }
-  try{
-    localStorage.setItem('operario-nombre', nombre);
-    localStorage.setItem('acceso-valido', 'si');
-  }catch(e){ /* sin localStorage: seguirá pidiendo acceso cada vez */ }
-  ocultarGate();
-  actualizarDisplayOperario();
-});
-
-document.getElementById('btn-cambiar-operario').addEventListener('click', (e)=>{
-  e.preventDefault();
-  mostrarGate(getOperario());
-});
-
-verificarAcceso();
-
-/* ---------- Botón "Instalar app" (PWA) ---------- */
-// Siempre visible: si el navegador ya tiene el instalador listo, lo usamos;
-// si no, mostramos cómo instalarla manualmente en vez de no hacer nada.
-let promptInstalacion = null;
-const btnInstalar = document.getElementById('btn-instalar-app');
-
-window.addEventListener('beforeinstallprompt', (e) => {
-  e.preventDefault();
-  promptInstalacion = e;
-});
-
-btnInstalar.addEventListener('click', async () => {
-  if(promptInstalacion){
-    btnInstalar.disabled = true;
-    promptInstalacion.prompt();
-    await promptInstalacion.userChoice;
-    promptInstalacion = null;
-    btnInstalar.disabled = false;
-  } else {
-    alert('Para instalar: toca el menú ⋮ de Chrome (arriba a la derecha) y elige "Instalar app" o "Agregar a pantalla de inicio".');
-  }
-});
-
-window.addEventListener('appinstalled', () => {
-  promptInstalacion = null;
+const operarioInput = document.getElementById('operario-nombre');
+try{ operarioInput.value = localStorage.getItem('operario-nombre') || ''; }catch(e){ /* sin localStorage */ }
+operarioInput.addEventListener('input', ()=>{
+  try{ localStorage.setItem('operario-nombre', operarioInput.value.trim()); }catch(e){ /* sin localStorage */ }
 });
 
 load();

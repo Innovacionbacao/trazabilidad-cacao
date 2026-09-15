@@ -36,38 +36,24 @@
     font-size:12px; color:var(--amber); border:1px solid var(--amber);
     padding:4px 10px; border-radius:20px; white-space:nowrap; margin-bottom:14px;
   }
-  .action-bar{
-    display:flex; align-items:center; gap:16px; flex-wrap:wrap;
-    padding:10px 24px; border-bottom:1px solid var(--line); background:var(--panel-2);
-  }
-  .operario-display{font-size:13px; color:var(--ink-dim); white-space:nowrap;}
-  .operario-display b{color:var(--ink);}
-  .operario-display a{color:var(--amber); text-decoration:underline; margin-left:4px; font-size:12px;}
-
-  .btn-instalar{
-    background:var(--amber); color:#1E1B16; border:none; padding:9px 16px;
-    border-radius:20px; font-weight:700; font-size:13px; cursor:pointer; white-space:nowrap;
-  }
-  .btn-instalar:hover{filter:brightness(1.08);}
-
   .page-links{
-    display:flex; gap:14px; align-items:center; font-size:13px; margin-left:auto;
+    display:flex; gap:10px; align-items:center; padding:10px 24px;
+    border-bottom:1px solid var(--line); font-size:13px;
   }
   .page-links a{color:var(--ink-dim); text-decoration:none;}
   .page-links a:hover{color:var(--ink);}
   .page-links a.current{color:var(--amber); font-weight:600;}
+  .page-links span{color:var(--line);}
 
-  .gate-overlay{
-    display:none; position:fixed; inset:0; background:rgba(10,9,7,0.88);
-    align-items:center; justify-content:center; z-index:1000; padding:20px;
+  .operario-bar{
+    display:flex; align-items:center; gap:10px; padding:10px 24px;
+    border-bottom:1px solid var(--line); background:var(--panel-2);
   }
-  .gate-card{
-    background:var(--panel); border:1px solid var(--line); border-radius:6px;
-    padding:32px 28px; max-width:360px; width:100%; text-align:center;
+  .operario-bar label{font-size:13px; color:var(--ink-dim); white-space:nowrap;}
+  .operario-bar input{
+    flex:1; max-width:320px; background:var(--panel); border:1px solid var(--line); color:var(--ink);
+    padding:8px 10px; border-radius:var(--radius); font-size:14px; font-family:inherit;
   }
-  .gate-logo{height:56px; margin-bottom:14px;}
-  .gate-card h2{margin:0 0 20px; font-size:17px; font-weight:600;}
-  .gate-card .field{text-align:left; margin-bottom:14px;}
 
   nav.tabs{
     display:flex; gap:2px; padding:0 24px; border-bottom:1px solid var(--line);

@@ -24,32 +24,23 @@
   <span class="page-role">Captura</span>
 </header>
 
-<div class="action-bar">
-  <span class="operario-display">Captura: <b id="operario-display-nombre">—</b> <a href="#" id="btn-cambiar-operario">cambiar</a></span>
-  <button id="btn-instalar-app" class="btn-instalar">📲 Instalar app</button>
-  <nav class="page-links">
-    <a href="index.html" class="current">Captura</a>
-    <a href="tablero.html">Tablero</a>
-    <a href="panel.html">Panel</a>
-  </nav>
+<div class="page-links">
+  <a href="index.html" class="current">Captura</a>
+  <span>·</span>
+  <a href="tablero.html">Tablero</a>
+  <span>·</span>
+  <a href="panel.html">Panel</a>
 </div>
 
-<div id="gate-overlay" class="gate-overlay">
-  <div class="gate-card">
-    <img src="logo-bacao.png" alt="Bacao" class="gate-logo">
-    <h2>Trazabilidad PHC — Captura</h2>
-    <div class="field"><label>¿Quién captura?</label><input type="text" id="gate-operario" autocomplete="off"></div>
-    <div class="field"><label>Clave de acceso</label><input type="password" id="gate-clave" autocomplete="off"></div>
-    <div id="gate-msg"></div>
-    <button id="gate-btn" class="big">Entrar</button>
-  </div>
+<div class="operario-bar">
+  <label for="operario-nombre">Operario:</label>
+  <input type="text" id="operario-nombre" placeholder="Tu nombre (queda registrado en cada acción)">
 </div>
 
 <nav class="tabs">
   <button data-tab="registro" class="active">Registro</button>
   <button data-tab="operacion">Operación</button>
 </nav>
-
 
 <main>
 

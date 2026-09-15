@@ -252,3 +252,14 @@ También en Panel → Seguimiento: la lista ahora muestra **todos** los baches
 activos (no solo los que exceden el tiempo), con su estado en verde (dentro
 de tiempo) o rojo (excedido), para tener visión completa de qué hay en
 proceso.
+
+## 13. Despacho de grado 2 / impurezas: ahora lo autoriza el jefe de producción
+
+El despacho del inventario común de grado 2 e impurezas se movió a
+**Panel → Lotes de venta** (junto a la generación de lotes), y exige el
+nombre del jefe de producción en Identificación, igual que las demás
+acciones de esa página.
+
+En **Tablero → Inventario** y en el **Dashboard** el saldo de grado 2 e
+impurezas se sigue viendo (de solo lectura) — ahí solo se consulta, no se
+despacha.

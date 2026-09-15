@@ -206,6 +206,40 @@ async function crearLoteVenta(){
   render();
 }
 
+function renderInventarioSecundario(){
+  const g2 = DATA.inventarioSecundario.grado2;
+  const imp = DATA.inventarioSecundario.impurezas;
+  document.getElementById('inventario-secundario-resumen').innerHTML = `
+    <div class="dash-grid">
+      <div class="dash-card"><div class="n">${(g2/1000).toFixed(2)}</div><div class="label">Grado 2 disponible (ton)</div></div>
+      <div class="dash-card"><div class="n">${(imp/1000).toFixed(2)}</div><div class="label">Impurezas disponibles (ton)</div></div>
+    </div>`;
+}
+
+async function despacharInventarioSecundario(){
+  const nombre = getAdminNombre();
+  const msg = document.getElementById('desp-secundario-msg');
+  if(!nombre){
+    msg.innerHTML = '<div class="msg err">Ingresa el nombre del jefe de producción arriba (Identificación) antes de despachar.</div>';
+    return;
+  }
+  const g2 = parseFloat(document.getElementById('desp-g2-cantidad').value) || 0;
+  const imp = parseFloat(document.getElementById('desp-imp-cantidad').value) || 0;
+  if(g2<=0 && imp<=0){ msg.innerHTML = '<div class="msg err">Ingresa una cantidad a despachar.</div>'; return; }
+  if(g2 > DATA.inventarioSecundario.grado2 + 0.01){ msg.innerHTML = '<div class="msg err">No hay suficiente Grado 2 disponible.</div>'; return; }
+  if(imp > DATA.inventarioSecundario.impurezas + 0.01){ msg.innerHTML = '<div class="msg err">No hay suficientes impurezas disponibles.</div>'; return; }
+  if(!confirm(`¿Confirmas despachar ${g2} kg de Grado 2 y ${imp} kg de impurezas, autorizado por ${nombre}?`)) return;
+
+  DATA.inventarioSecundario.grado2 -= g2;
+  DATA.inventarioSecundario.impurezas -= imp;
+  registrarMovimiento('Despacho de Grado 2 / impurezas', `G2: ${g2} kg · Impurezas: ${imp} kg`, nombre);
+  await save();
+  document.getElementById('desp-g2-cantidad').value = '';
+  document.getElementById('desp-imp-cantidad').value = '';
+  msg.innerHTML = '<div class="msg ok">Despacho registrado.</div>';
+  render();
+}
+
 function renderLotesPool(){
   const tabsEl = document.getElementById('lv-tabs');
   tabsEl.innerHTML = Object.keys(DENOM).map(k=>
@@ -503,16 +537,18 @@ function render(){
   renderFueraDeNorma();
   renderLiberacion();
   renderLotesPool();
+  renderInventarioSecundario();
   renderMovimientos();
   renderListaCodigosEditar();
 }
 
 inicializarAdminTabs();
-inicializarGateSimple('phc2026', 'acceso-valido-panel');
+inicializarGateSimple('phc-panel-2026', 'acceso-valido-panel');
 document.getElementById('btn-guardar-mapa').addEventListener('click', guardarMapaMaestro);
 document.getElementById('btn-guardar-conversion').addEventListener('click', guardarMaestroConversion);
 document.getElementById('btn-guardar-capacidad').addEventListener('click', guardarCapacidadMaestro);
 document.getElementById('btn-edit-cargar').addEventListener('click', cargarBacheParaEditar);
+document.getElementById('btn-despachar-secundario').addEventListener('click', despacharInventarioSecundario);
 document.getElementById('btn-backup').addEventListener('click', descargarBackup);
 document.getElementById('btn-export-baches').addEventListener('click', exportarBachesCSV);
 document.getElementById('btn-export-lotes').addEventListener('click', exportarLotesCSV);

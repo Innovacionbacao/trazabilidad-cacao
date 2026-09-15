@@ -512,28 +512,6 @@ function renderInventarioSecundario(){
     </div>`;
 }
 
-async function despacharInventarioSecundario(){
-  const g2 = parseFloat(document.getElementById('desp-g2-cantidad').value) || 0;
-  const imp = parseFloat(document.getElementById('desp-imp-cantidad').value) || 0;
-  const encargado = document.getElementById('desp-secundario-encargado').value.trim();
-  const msg = document.getElementById('desp-secundario-msg');
-
-  if(g2<=0 && imp<=0){ msg.innerHTML = '<div class="msg err">Ingresa una cantidad a despachar.</div>'; return; }
-  if(!encargado){ msg.innerHTML = '<div class="msg err">Escribe el encargado del despacho.</div>'; return; }
-  if(g2 > DATA.inventarioSecundario.grado2 + 0.01){ msg.innerHTML = '<div class="msg err">No hay suficiente Grado 2 disponible.</div>'; return; }
-  if(imp > DATA.inventarioSecundario.impurezas + 0.01){ msg.innerHTML = '<div class="msg err">No hay suficientes impurezas disponibles.</div>'; return; }
-  if(!confirm(`¿Confirmas despachar ${g2} kg de Grado 2 y ${imp} kg de impurezas, a cargo de ${encargado}?`)) return;
-
-  DATA.inventarioSecundario.grado2 -= g2;
-  DATA.inventarioSecundario.impurezas -= imp;
-  registrarMovimiento('Despacho de Grado 2 / impurezas', `G2: ${g2} kg · Impurezas: ${imp} kg`, encargado);
-  await save();
-  document.getElementById('desp-g2-cantidad').value = '';
-  document.getElementById('desp-imp-cantidad').value = '';
-  msg.innerHTML = '<div class="msg ok">Despacho registrado.</div>';
-  render();
-}
-
 function renderInventarioEmpacado(){
   const pendientes = DATA.baches.filter(b=>b.etapaIdx===7 && disponibleLV(b) > 0)
     .sort((a,b)=> new Date(b.horaInicioEtapa) - new Date(a.horaInicioEtapa));
@@ -618,7 +596,7 @@ function render(){
 }
 
 inicializarTabs();
-inicializarGateSimple('phc2026', 'acceso-valido-tablero');
+inicializarGateSimple('phc-tablero-2026', 'acceso-valido-tablero');
 document.getElementById('trace-f-denom').addEventListener('change', render);
 document.getElementById('trace-f-desde').addEventListener('change', render);
 document.getElementById('trace-f-hasta').addEventListener('change', render);
@@ -635,6 +613,5 @@ document.getElementById('dash-hasta').addEventListener('change', render);
 document.getElementById('dash-denom').addEventListener('change', render);
 document.getElementById('btn-export-dashboard-csv').addEventListener('click', exportarDashboardCSV);
 document.getElementById('btn-print-dashboard').addEventListener('click', imprimirDashboard);
-document.getElementById('btn-despachar-secundario').addEventListener('click', despacharInventarioSecundario);
 
 load();

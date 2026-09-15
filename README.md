@@ -288,3 +288,28 @@ De paso se corrigió un bug: el filtro "Todo el historial" del Dashboard
 arrancaba en el año 2000 fijo, lo que aplastaba las barras del gráfico contra
 cientos de meses vacíos. Ahora arranca desde la fecha del primer bache
 registrado.
+
+## 16. Cambios de esta ronda (grande)
+
+1. **Pesajes hoy/ayer**: en Captura → Registro, junto a las toneladas recibidas hoy/ayer ahora se muestra también el conteo de pesajes (básculas) de cada día.
+
+2. **Bug corregido**: generar un lote de venta con baches que ya no tenían grado 1 disponible fallaba en silencio (no pasaba nada, sin aviso). Ahora muestra un mensaje de error claro.
+
+3. **Despacho de lotes de venta movido a Panel**: se autoriza desde Panel → Lotes de venta (exige el nombre del jefe de producción, como las demás acciones de Panel). En Tablero → Inventario el lote solo se ve, sin botón de despacho.
+
+4. **Nueva pestaña "Despachos"** en Tablero: lista de lotes ya despachados, con filtro por denominación y rango de fechas, y botón para exportar a CSV.
+
+5. **Empaque rediseñado (bultos + remanente)**: en vez de pesar un "grado 1" suelto, ahora se ingresan los **bultos llenados** (de un peso fijo, configurable en Panel → Configuración → "Peso por bulto de grado 1") y el **remanente resultante** (lo que sobra de un bulto incompleto). Ese remanente se guarda por denominación y se suma automáticamente al siguiente bache de esa misma denominación que se empaque, para consolidarlo en un bulto completo. Se ve (solo lectura) en Tablero → Inventario.
+
+6. **Prueba de corte**: al empacar (liberar a Almacenado) ahora se registra una prueba de corte sobre una muestra de 50 granos: marrones, marrones violeta, violetas, y moho/pizarra. Se calcula el % de moho y el % de (marrones + marrones violeta), y el resultado es automático:
+   - **Rechazado** si moho > 2% o (marrones + marrones violeta) < 80%.
+   - **Aprobado** en cualquier otro caso.
+   Queda guardado en el bache y visible desde Panel → Editar baches.
+
+7. **Proyección del proceso a 7 o 15 días**: en Tablero → Proyección hay un selector de horizonte (7 o 15 días) que aplica tanto a la tabla de saturación por etapa como a la de etapa por bache — útil para planear personal.
+
+8. **Un día adicional en F. aeróbica para Aromático y Upia**: CCN-51 sigue en 48 h (2 días); Aromático y Upia ahora tienen 72 h (3 días) antes de marcar "excedido".
+
+9. **Contador de volteos en vez de aireación día 1/día 2**: como el presecado a veces se satura y el cacao se queda más días en F. aeróbica de los previstos, ya no hay solo dos casillas fijas — hay un botón "↩ Registrar volteo" que se puede usar tantas veces como haga falta mientras el bache esté en esa etapa, con fecha y operario guardados en cada volteo.
+
+Nota: al revertir con "Retroceder etapa" un bache que ya estaba en Almacenado, ahora también se deshacen correctamente el remanente de grado 1, el inventario común de grado 2/impurezas, y la prueba de corte asociados a ese empaque.

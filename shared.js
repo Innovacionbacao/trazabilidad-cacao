@@ -67,6 +67,12 @@ let DATA = {
   // necesidad de rastrear de qué bache o lote de venta salieron. Se despachan
   // por cantidad, no por bache.
   inventarioSecundario: { grado2: 0, impurezas: 0 },
+  // Peso de un bulto/saco de grado 1 (kg). Al empacar, solo se llenan bultos
+  // completos; lo que sobra de un bulto incompleto se guarda aquí por
+  // denominación y se suma al siguiente bache que se empaque de esa misma
+  // denominación, para consolidarlo en un bulto completo.
+  pesoBulto: 69,
+  remanenteG1: { ccn51: 0, aromatico: 0, upia: 0 },
   movimientos: [],
   adminNombre: ''
 };
@@ -86,9 +92,12 @@ function codigoBache(fechaHora, denom){
   return `${y}${m}${day}${DENOM[denom].letra}`;
 }
 
-function limiteHoras(idx){
+function limiteHoras(idx, denom){
   const mm = DATA.mapaMaestro;
   if(idx===6 || idx===7) return null; // Empaque y Almacenado no manejan exceso de tiempo
+  if(idx===3 && (denom==='aromatico' || denom==='upia')){
+    return mm.aerobica + 24; // Aromático y Upia: un día adicional en F. aeróbica
+  }
   return [mm.recepcion, null, mm.anaerobica, mm.aerobica, mm.presecado, mm.secado, mm.empaque][idx];
 }
 
@@ -218,7 +227,7 @@ function crearBacheParcial(original, cantidad){
     etapaIdx: original.etapaIdx,
     horaInicioEtapa: original.horaInicioEtapa,
     historial: JSON.parse(JSON.stringify(original.historial)),
-    aireacion: [{dia:1, hecho:false, hora:null},{dia:2, hecho:false, hora:null}],
+    volteos: [],
     peso_final: null, peso_g1: null, peso_g2: null, peso_impurezas: null,
     humedadSalida: null, liberado: false, lvAsignaciones: [],
     parcialDe: base

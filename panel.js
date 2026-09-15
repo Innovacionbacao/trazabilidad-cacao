@@ -65,6 +65,7 @@ function renderCapacidadForm(){
   document.getElementById('cap-secado-total').value = p['Secado'].total;
   document.getElementById('cap-secado-kg').value = p['Secado'].capKg;
   document.getElementById('cap-almacen-ton').value = DATA.capacidadMaestro.almacenTotalTon;
+  document.getElementById('cap-peso-bulto').value = DATA.pesoBulto;
 }
 
 async function guardarCapacidadMaestro(){
@@ -81,7 +82,8 @@ async function guardarCapacidadMaestro(){
     almacenTotalTon: num('cap-almacen-ton'),
     almacenM2PorTon: DATA.capacidadMaestro.almacenM2PorTon
   };
-  registrarMovimiento('Maestro de capacidad actualizado', JSON.stringify(DATA.capacidadMaestro), nombre);
+  DATA.pesoBulto = num('cap-peso-bulto') || 69;
+  registrarMovimiento('Maestro de capacidad actualizado', JSON.stringify(DATA.capacidadMaestro) + ` · peso por bulto: ${DATA.pesoBulto} kg`, nombre);
   await save();
   render();
 }
@@ -93,7 +95,7 @@ function renderFueraDeNorma(){
     .filter(b=>ACTIVE_INDICES.includes(b.etapaIdx))
     .map(b=>{
       const horas = (now - new Date(b.horaInicioEtapa))/3600000;
-      const lim = limiteHoras(b.etapaIdx);
+      const lim = limiteHoras(b.etapaIdx, b.denom);
       const excedido = lim!=null && horas > lim;
       return {b, horas, lim, excedido};
     })
@@ -160,7 +162,10 @@ async function crearLoteVenta(){
     return;
   }
   const seleccionados = DATA.baches.filter(b=>lvSeleccionados.has(b.codigo));
-  if(seleccionados.length===0) return;
+  if(seleccionados.length===0){
+    msg.innerHTML = '<div class="msg err">Selecciona al menos un bache liberado antes de generar el lote.</div>';
+    return;
+  }
 
   let restante = MAX_KG_LOTE_VENTA;
   const usados = [];
@@ -172,7 +177,10 @@ async function crearLoteVenta(){
     usados.push({b, kg: kgUsado});
     restante -= kgUsado;
   }
-  if(usados.length===0) return;
+  if(usados.length===0){
+    msg.innerHTML = '<div class="msg err">Los baches seleccionados ya no tienen grado 1 disponible (probablemente ya están asignados por completo a otro lote). Refresca la lista y vuelve a intentar.</div>';
+    return;
+  }
 
   DATA.lvConsecutivo += 1;
   const codigo = 'LV-' + String(DATA.lvConsecutivo).padStart(4,'0');
@@ -184,7 +192,7 @@ async function crearLoteVenta(){
     totalG2 += (u.b.peso_g2||0)*frac;
     totalImp += (u.b.peso_impurezas||0)*frac;
   });
-  const detalleBultos = usados.map(u=>({codigo:u.b.codigo, bultos:Math.floor(u.kg/69), kg:Math.round(u.kg)}));
+  const detalleBultos = usados.map(u=>({codigo:u.b.codigo, bultos:Math.floor(u.kg/DATA.pesoBulto), kg:Math.round(u.kg)}));
 
   DATA.lotes.push({
     codigo, denom:lvTabActivo, baches:usados.map(u=>u.b.codigo),
@@ -204,6 +212,53 @@ async function crearLoteVenta(){
     : `<div class="msg ok">Lote ${codigo} generado por ${nombre} con ${(totalKg/1000).toFixed(2)} ton.</div>`;
   await save();
   render();
+}
+
+async function despacharLote(codigo){
+  const nombre = getAdminNombre();
+  const l = DATA.lotes.find(x=>x.codigo===codigo);
+  const horaInput = document.getElementById('desp-hora-'+codigo);
+  const encargadoInput = document.getElementById('desp-encargado-'+codigo);
+  const remisionInput = document.getElementById('desp-remision-'+codigo);
+  const empresaInput = document.getElementById('desp-empresa-'+codigo);
+  const encargado = encargadoInput.value.trim();
+  const remision = remisionInput.value.trim();
+  const empresa = empresaInput.value.trim();
+  const msgEl = document.getElementById('desp-msg-'+codigo);
+  if(!nombre){
+    msgEl.innerHTML = '<div class="msg err">Ingresa el nombre del jefe de producción arriba (Identificación) antes de despachar.</div>';
+    return;
+  }
+  if(!encargado || !remision || !empresa){
+    msgEl.innerHTML = '<div class="msg err">Completa encargado, N° de remisión y empresa de despacho.</div>';
+    return;
+  }
+  const hora = horaInput.value ? new Date(horaInput.value) : new Date();
+  if(!confirm(`¿Confirmas el despacho del lote ${codigo}, autorizado por ${nombre}?`)) return;
+  l.despacho = { fecha: hora.toISOString(), encargado, remision, empresa, autorizadoPor: nombre };
+  registrarMovimiento('Lote despachado', `${codigo}: remisión ${remision}, transporta ${empresa}, autorizado por ${nombre}`, encargado);
+  await save();
+  render();
+}
+
+function renderLotesDespacho(){
+  const wrap = document.getElementById('lv-despacho-list');
+  const pendientes = DATA.lotes.filter(l=>!l.despacho).reverse();
+  wrap.innerHTML = pendientes.length ? pendientes.map(l=>`
+    <div class="lv-history-item" style="flex-direction:column; align-items:stretch;">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+        <div><span class="tag" style="background:${DENOM[l.denom].color}">${DENOM[l.denom].label}</span> <span class="mono" style="margin-left:8px;">${l.codigo}</span></div>
+        <div class="op-meta">${(l.total_kg/1000).toFixed(2)} ton · generado por ${l.generadoPor||'—'}</div>
+      </div>
+      <div class="row" style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;">
+        <div class="field" style="flex:1; min-width:160px; margin-bottom:0;"><label>Fecha y hora de despacho</label><input type="datetime-local" id="desp-hora-${l.codigo}" value="${toLocalInputValue(new Date())}"></div>
+        <div class="field" style="flex:1; min-width:160px; margin-bottom:0;"><label>Encargado</label><input type="text" id="desp-encargado-${l.codigo}"></div>
+        <div class="field" style="flex:1; min-width:160px; margin-bottom:0;"><label>N° remisión de salida</label><input type="text" id="desp-remision-${l.codigo}"></div>
+        <div class="field" style="flex:1; min-width:160px; margin-bottom:0;"><label>Empresa de despacho</label><input type="text" id="desp-empresa-${l.codigo}"></div>
+      </div>
+      <div id="desp-msg-${l.codigo}"></div>
+      <button onclick="despacharLote('${l.codigo}')" style="margin-top:10px;">Marcar como despachado</button>
+    </div>`).join('') : '<div class="empty">No hay lotes pendientes de despacho.</div>';
 }
 
 function renderInventarioSecundario(){
@@ -282,7 +337,7 @@ function renderLotesPool(){
       const disp = disponibleLV(b);
       if(checked) totalSel += disp;
       const parcial = disp < b.peso_final ? ` · ${b.peso_final-disp} kg ya en otro lote` : '';
-      return `<div class="lv-pool-item"><input type="checkbox" ${checked?'checked':''} onchange="toggleSeleccionLV('${b.codigo}')"><span class="mono">${b.codigo}</span><span class="op-meta">${disp} kg de grado 1 disponibles · ${Math.floor(disp/69)} sacos${parcial}</span></div>`;
+      return `<div class="lv-pool-item"><input type="checkbox" ${checked?'checked':''} onchange="toggleSeleccionLV('${b.codigo}')"><span class="mono">${b.codigo}</span><span class="op-meta">${disp} kg de grado 1 disponibles · ${Math.floor(disp/DATA.pesoBulto)} sacos${parcial}</span></div>`;
     }).join('');
     const excede = totalSel > MAX_KG_LOTE_VENTA;
     const avisoTope = excede
@@ -339,6 +394,7 @@ function restaurarBackup(ev){
         baches:[], lotes:[], lvConsecutivo:0,
         mapaMaestro:DATA.mapaMaestro, maestroConversion:DATA.maestroConversion,
         capacidadMaestro:DATA.capacidadMaestro, inventarioSecundario:DATA.inventarioSecundario,
+        pesoBulto:DATA.pesoBulto, remanenteG1:DATA.remanenteG1,
         movimientos:[]
       }, parsed);
       await save();
@@ -368,7 +424,7 @@ function baseBache(codStr, denom, etapaIdx, horasEnEtapa, pesoFresco, bascula, p
     basculas: [{numero: bascula, peso: pesoFresco, hora: hoursAgoIso(horasEnEtapa)}],
     etapaIdx, horaInicioEtapa: hoursAgoIso(horasEnEtapa),
     historial: [],
-    aireacion: [{dia:1, hecho:false, hora:null},{dia:2, hecho:false, hora:null}],
+    volteos: [],
     peso_final: pesoFinal!=null ? pesoFinal : null,
     peso_g1: pesoG1 ?? null, peso_g2: pesoG2 ?? null, peso_impurezas: pesoImpurezas ?? null,
     humedadSalida: null,
@@ -385,7 +441,7 @@ async function cargarEjemplo(){
   const c3 = baseBache(daysAgoCodStr(5), 'aromatico', 7, 48, 890, 'B-1003', 650, null, 650, 130, 15, false);
   const c4 = baseBache(daysAgoCodStr(4), 'upia', 2, 60, 2500, 'B-1004', null, null); // excedido: >48h en F. anaeróbica
   const c5 = baseBache(daysAgoCodStr(3), 'ccn51', 3, 20, 1500, 'B-1005', null, null);
-  c5.aireacion[0] = {dia:1, hecho:true, hora:hoursAgoIso(15)};
+  c5.volteos = [{hora:hoursAgoIso(15), operario:'Ejemplo Demo'}];
   const c6 = baseBache(daysAgoCodStr(2), 'aromatico', 4, 5, 3000, 'B-1006', null, null);
   const c7 = baseBache(daysAgoCodStr(1), 'upia', 5, 10, 2000, 'B-1007', null, null);
   const c8 = baseBache(daysAgoCodStr(0), 'ccn51', 0, 3, 1200, 'B-1008', null, null);
@@ -401,8 +457,8 @@ async function cargarEjemplo(){
     codigo:'LV-0001', denom:'ccn51', baches:[c1.codigo,c2.codigo],
     total_kg: c1.peso_final+c2.peso_final, total_g1: c1.peso_g1+c2.peso_g1, total_g2: c1.peso_g2+c2.peso_g2, total_impurezas: c1.peso_impurezas+c2.peso_impurezas,
     detalleBultos: [
-      {codigo:c1.codigo, bultos: Math.floor(c1.peso_final/69), kg:c1.peso_final},
-      {codigo:c2.codigo, bultos: Math.floor(c2.peso_final/69), kg:c2.peso_final}
+      {codigo:c1.codigo, bultos: Math.floor(c1.peso_final/DATA.pesoBulto), kg:c1.peso_final},
+      {codigo:c2.codigo, bultos: Math.floor(c2.peso_final/DATA.pesoBulto), kg:c2.peso_final}
     ],
     generadoPor: 'Ejemplo Demo', fecha: hoursAgoIso(60),
     despacho: null
@@ -476,6 +532,9 @@ function cargarBacheParaEditar(){
     <div class="op-meta" style="margin-bottom:14px;">
       Básculas: ${(b.basculas||[]).map(x=>`${x.numero} (${x.peso} kg)`).join(', ') || '—'}
       ${(b.lvAsignaciones||[]).length ? ` · Lotes: ${b.lvAsignaciones.map(a=>`${a.lv} (${a.kg} kg)`).join(', ')}` : ''}
+      ${b.volteos && b.volteos.length ? ` · Volteos en F. aeróbica: ${b.volteos.length}` : ''}
+      ${b.bultos!=null ? ` · Bultos: ${b.bultos} · Remanente recibido: ${b.remanenteRecibido ?? 0} kg · Remanente resultante: ${b.remanenteResultante ?? 0} kg` : ''}
+      ${b.pruebaCorte ? ` · Prueba de corte: <b>${b.pruebaCorte.resultado}</b> (marrones ${b.pruebaCorte.granosMarrones}, marrones violeta ${b.pruebaCorte.granosMarronesVioleta}, violetas ${b.pruebaCorte.granosVioletas}, moho ${b.pruebaCorte.granosMoho} de 50 — moho ${b.pruebaCorte.pctMoho}%, marrones+violeta ${b.pruebaCorte.pctMarrones}%)` : ''}
     </div>
     <div id="edit-msg"></div>
     <button id="btn-edit-guardar">Guardar cambios</button>
@@ -562,6 +621,7 @@ function render(){
   renderFueraDeNorma();
   renderLiberacion();
   renderLotesPool();
+  renderLotesDespacho();
   renderInventarioSecundario();
   renderMovimientos();
   renderListaCodigosEditar();

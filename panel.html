@@ -99,6 +99,7 @@
           <div class="field"><label>Secadoras: cantidad</label><input type="number" id="cap-secado-total"></div>
           <div class="field"><label>Secadoras: kg cada una</label><input type="number" id="cap-secado-kg"></div>
           <div class="field"><label>Bodega: capacidad total (ton)</label><input type="number" id="cap-almacen-ton"></div>
+          <div class="field"><label>Peso por bulto de grado 1 (kg)</label><input type="number" id="cap-peso-bulto"></div>
         </div>
         <button class="secondary" id="btn-guardar-capacidad">Guardar maestro de capacidad</button>
         <p class="op-meta" style="margin-top:10px;">
@@ -123,6 +124,11 @@
       <p class="block-title">Generar lote de venta (baches liberados)</p>
       <div class="tabs-lv" id="lv-tabs"></div>
       <div class="lv-pool" id="lv-pool"></div>
+
+      <div class="section-gap">
+        <p class="block-title">Despachar lotes de venta generados</p>
+        <div class="lv-history" id="lv-despacho-list"></div>
+      </div>
 
       <div class="section-gap">
         <p class="block-title">Despachar grado 2 e impurezas (inventario común)</p>

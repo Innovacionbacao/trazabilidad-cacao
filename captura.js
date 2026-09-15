@@ -38,10 +38,14 @@ function renderResumenHoyAyer(){
   const deAyer = DATA.baches.filter(b=>b.fecha===keyAyer);
   const kgHoy = deHoy.reduce((s,b)=>s+b.peso_fresco,0);
   const kgAyer = deAyer.reduce((s,b)=>s+b.peso_fresco,0);
+  const pesajesHoy = deHoy.reduce((s,b)=>s+(b.basculas||[]).length,0);
+  const pesajesAyer = deAyer.reduce((s,b)=>s+(b.basculas||[]).length,0);
 
   document.getElementById('resumen-hoy-ayer').innerHTML = `
     <div class="dash-card"><div class="n">${(kgHoy/1000).toFixed(2)}</div><div class="label">ton recibidas hoy (${deHoy.length} bache${deHoy.length===1?'':'s'})</div></div>
+    <div class="dash-card"><div class="n">${pesajesHoy}</div><div class="label">pesajes hoy</div></div>
     <div class="dash-card"><div class="n">${(kgAyer/1000).toFixed(2)}</div><div class="label">ton recibidas ayer (${deAyer.length} bache${deAyer.length===1?'':'s'})</div></div>
+    <div class="dash-card"><div class="n">${pesajesAyer}</div><div class="label">pesajes ayer</div></div>
   `;
 }
 
@@ -94,7 +98,7 @@ async function registrarBache(){
       etapaIdx: etapaIdxInicial,
       horaInicioEtapa: horaEntrada.toISOString(),
       historial: historialInicial,
-      aireacion: [ {dia:1, hecho:false, hora:null}, {dia:2, hecho:false, hora:null} ],
+      volteos: [],
       peso_final: null, peso_g1: null, peso_g2: null, peso_impurezas: null,
       humedadSalida: null, liberado: false, lvAsignaciones: []
     });
@@ -170,7 +174,7 @@ async function avanzarEtapa(codigo){
 
   const inicio = new Date(target.horaInicioEtapa);
   const duracionHoras = (horaReal - inicio) / 3600000;
-  const limite = limiteHoras(target.etapaIdx);
+  const limite = limiteHoras(target.etapaIdx, target.denom);
   const estado = (limite!=null && duracionHoras > limite) ? 'excedido' : 'ok';
 
   target.historial.push({
@@ -205,36 +209,66 @@ async function avanzarEtapa(codigo){
 
 async function registrarEmpaque(codigo){
   const b = DATA.baches.find(x=>x.codigo===codigo);
-  const g1Input = document.getElementById('mov-g1-'+codigo);
+  const bultosInput = document.getElementById('mov-bultos-'+codigo);
+  const remInput = document.getElementById('mov-remanente-'+codigo);
   const g2Input = document.getElementById('mov-g2-'+codigo);
   const impInput = document.getElementById('mov-imp-'+codigo);
   const horaInput = document.getElementById('mov-hora-'+codigo);
-  const g1 = parseFloat(g1Input.value) || 0;
+  const gmInput = document.getElementById('mov-gm-'+codigo);
+  const gmvInput = document.getElementById('mov-gmv-'+codigo);
+  const gvInput = document.getElementById('mov-gv-'+codigo);
+  const gmohoInput = document.getElementById('mov-gmoho-'+codigo);
+
+  const bultos = parseInt(bultosInput.value) || 0;
+  const remanenteNuevo = parseFloat(remInput.value) || 0;
   const g2 = parseFloat(g2Input.value) || 0;
   const imp = parseFloat(impInput.value) || 0;
+  const gm = parseInt(gmInput.value) || 0;
+  const gmv = parseInt(gmvInput.value) || 0;
+  const gv = parseInt(gvInput.value) || 0;
+  const gmoho = parseInt(gmohoInput.value) || 0;
   const horaReal = horaInput.value ? new Date(horaInput.value) : new Date();
-  const pesoFinal = g1 + g2;
   const msgEl = document.getElementById('mov-msg-'+codigo);
   const operario = getOperario();
+
   if(!operario){
     msgEl.innerHTML = '<div class="msg err">Escribe tu nombre en "Operario" arriba antes de registrar el empaque.</div>';
     return;
   }
-  if(pesoFinal <= 0) return;
-
-  const factor = pesoFinal / b.peso_fresco;
-  if(factor < 0.20 || factor > 0.45){
-    const minKg = Math.round(b.peso_fresco * 0.20);
-    const maxKg = Math.round(b.peso_fresco * 0.45);
-    msgEl.innerHTML = `<div class="msg err">El peso seco total ingresado (${pesoFinal} kg) está fuera del rango esperado para ${b.peso_fresco} kg de fresco: entre ${minKg} kg y ${maxKg} kg. Revisa los pesos.</div>`;
+  const pesoBulto = DATA.pesoBulto;
+  const bultosKg = bultos * pesoBulto;
+  if(bultosKg <= 0 && remanenteNuevo <= 0 && g2 <= 0){
+    msgEl.innerHTML = '<div class="msg err">Registra al menos bultos, remanente o grado 2.</div>';
+    return;
+  }
+  if((gm+gmv+gv+gmoho) === 0){
+    msgEl.innerHTML = '<div class="msg err">Registra el resultado de la prueba de corte (conteo sobre 50 granos).</div>';
+    return;
+  }
+  if((gm+gmv+gv+gmoho) > 50){
+    msgEl.innerHTML = '<div class="msg err">La suma de granos contados no puede ser mayor a 50.</div>';
     return;
   }
 
-  if(!confirm(`¿Confirmas el empaque del bache ${codigo}? G1 ${g1} kg, G2 ${g2} kg, impurezas ${imp} kg. Esto lo pasa a Almacenado.`)) return;
+  const remanentePrevio = DATA.remanenteG1[b.denom] || 0;
+  const pesoSecoTotalAprox = bultosKg + remanenteNuevo + g2;
+  const factor = pesoSecoTotalAprox / b.peso_fresco;
+  if(factor < 0.20 || factor > 0.45){
+    const minKg = Math.round(b.peso_fresco * 0.20);
+    const maxKg = Math.round(b.peso_fresco * 0.45);
+    msgEl.innerHTML = `<div class="msg err">El total (bultos + remanente + grado 2 = ${pesoSecoTotalAprox} kg, incluyendo ${remanentePrevio} kg de remanente previo) está fuera del rango esperado para ${b.peso_fresco} kg de fresco: entre ${minKg} kg y ${maxKg} kg. Revisa los pesos.</div>`;
+    return;
+  }
+
+  const pctMoho = (gmoho/50*100);
+  const pctMarrones = ((gm+gmv)/50*100);
+  const resultadoCorte = (pctMoho > 2 || pctMarrones < 80) ? 'Rechazado' : 'Aprobado';
+
+  if(!confirm(`¿Confirmas el empaque del bache ${codigo}? ${bultos} bultos (${bultosKg} kg) · remanente nuevo ${remanenteNuevo} kg · G2 ${g2} kg · impurezas ${imp} kg. Prueba de corte: ${resultadoCorte} (moho ${pctMoho.toFixed(1)}%, marrones+marrones violeta ${pctMarrones.toFixed(1)}%). Esto lo pasa a Almacenado.`)) return;
 
   const inicio = new Date(b.horaInicioEtapa);
   const duracionHoras = (horaReal - inicio) / 3600000;
-  const limite = limiteHoras(b.etapaIdx);
+  const limite = limiteHoras(b.etapaIdx, b.denom);
   const estado = (limite!=null && duracionHoras > limite) ? 'excedido' : 'ok';
 
   b.historial.push({
@@ -243,33 +277,45 @@ async function registrarEmpaque(codigo){
     duracionHoras, estado, limiteHoras: limite, ocupacion: '—'
   });
 
-  b.peso_g1 = g1;
+  b.bultos = bultos;
+  b.remanenteRecibido = remanentePrevio;
+  b.remanenteResultante = remanenteNuevo;
   b.peso_g2 = g2;
   b.peso_impurezas = imp;
-  // Solo el grado 1 sigue el circuito formal de bache → lote de venta → despacho.
-  // El grado 2 y las impurezas van directo a un inventario común de bodega,
-  // sin quedar amarrados a este bache ni a ningún lote de venta.
-  b.peso_final = g1;
+  // Solo los bultos completos de grado 1 siguen el circuito formal de
+  // bache → lote de venta → despacho. El remanente (menos de un bulto) se
+  // guarda aparte para consolidarse con el siguiente bache de esta misma
+  // denominación que se empaque. El grado 2 y las impurezas van directo al
+  // inventario común de bodega.
+  b.peso_g1 = bultosKg;
+  b.peso_final = bultosKg;
+  DATA.remanenteG1[b.denom] = remanenteNuevo;
   DATA.inventarioSecundario.grado2 += g2;
   DATA.inventarioSecundario.impurezas += imp;
   b.contadoEnPoolG2 = true;
+  b.pruebaCorte = {
+    muestra: 50, granosMarrones: gm, granosMarronesVioleta: gmv, granosVioletas: gv, granosMoho: gmoho,
+    pctMoho: Math.round(pctMoho*10)/10, pctMarrones: Math.round(pctMarrones*10)/10,
+    resultado: resultadoCorte, fecha: horaReal.toISOString(), operario
+  };
   b.etapaIdx = 7;
   b.liberado = false;
   b.horaInicioEtapa = horaReal.toISOString();
-  registrarMovimiento('Empaque registrado', `Bache ${b.codigo}: G1 ${g1} kg (a lote de venta) · G2 ${g2} kg e impurezas ${imp} kg (a inventario común)`, operario);
+  registrarMovimiento('Empaque registrado', `Bache ${b.codigo}: ${bultos} bultos (${bultosKg} kg) a lote de venta · remanente ${remanenteNuevo} kg · G2 ${g2} kg e impurezas ${imp} kg a inventario común · Prueba de corte: ${resultadoCorte}`, operario);
   opSeleccionado = null;
   await save();
   render();
 }
 
-async function toggleAireacion(codigo, dia){
+async function registrarVolteo(codigo){
   const b = DATA.baches.find(x=>x.codigo===codigo);
-  const item = b.aireacion.find(a=>a.dia===dia);
-  item.hecho = !item.hecho;
-  item.hora = item.hecho ? new Date().toISOString() : null;
-  if(item.hecho){
-    registrarMovimiento('Aireación marcada', `Bache ${codigo}: día ${dia}`, getOperario());
+  const operario = getOperario();
+  if(!operario){
+    alert('Escribe tu nombre en "Operario" arriba antes de registrar un volteo.');
+    return;
   }
+  b.volteos.push({ hora: new Date().toISOString(), operario });
+  registrarMovimiento('Volteo registrado', `Bache ${codigo}: volteo N° ${b.volteos.length}`, operario);
   await save();
   render();
 }
@@ -306,7 +352,14 @@ async function retrocederEtapa(codigo){
   if(!entry) return;
 
   if(eraEmpaque){
+    if(b.contadoEnPoolG2){
+      DATA.inventarioSecundario.grado2 -= (b.peso_g2||0);
+      DATA.inventarioSecundario.impurezas -= (b.peso_impurezas||0);
+      DATA.remanenteG1[b.denom] = b.remanenteRecibido || 0;
+    }
     b.peso_g1 = null; b.peso_g2 = null; b.peso_impurezas = null; b.peso_final = null; b.liberado = false;
+    b.bultos = null; b.remanenteRecibido = null; b.remanenteResultante = null; b.pruebaCorte = null;
+    b.contadoEnPoolG2 = false;
   }
   if(entry.etapaIdx === 5){
     b.humedadSalida = null;
@@ -324,7 +377,7 @@ function renderOpCard(b){
   const now = new Date();
   const inicio = new Date(b.horaInicioEtapa);
   const horas = (now - inicio)/3600000;
-  const limite = limiteHoras(b.etapaIdx);
+  const limite = limiteHoras(b.etapaIdx, b.denom);
   const excedido = limite!=null && horas > limite;
   const durClass = excedido ? 'excedido' : 'ok';
   const durTxt = horas < 24 ? `${horas.toFixed(1)} h en etapa` : `${(horas/24).toFixed(1)} d en etapa`;
@@ -333,24 +386,32 @@ function renderOpCard(b){
   let accion = '';
   if(opSeleccionado === b.codigo){
     if(b.etapaIdx === 3){
+      const ultimoVolteo = b.volteos.length ? fmtDateTime(new Date(b.volteos[b.volteos.length-1].hora)) : null;
       accion += `
-        <div class="aireacion-btns">
-          ${b.aireacion.map(a=>`<button class="${a.hecho?'done secondary':'secondary'}" onclick="event.stopPropagation(); toggleAireacion('${b.codigo}', ${a.dia})">
-            Aireación día ${a.dia} ${a.hecho ? '✓' : ''}
-          </button>`).join('')}
-        </div>`;
+        <div class="op-meta">Volteos registrados: <b>${b.volteos.length}</b>${ultimoVolteo ? ` · último: ${ultimoVolteo}` : ''}</div>
+        <button class="secondary" onclick="event.stopPropagation(); registrarVolteo('${b.codigo}')">↻ Registrar volteo</button>`;
     }
     if(b.etapaIdx === 6){
-      const minKg = Math.round(b.peso_fresco * 0.20);
-      const maxKg = Math.round(b.peso_fresco * 0.45);
+      const pesoBulto = DATA.pesoBulto;
+      const remanentePrevio = DATA.remanenteG1[b.denom] || 0;
+      const minBultos = Math.floor((b.peso_fresco * 0.20 + remanentePrevio) / pesoBulto);
+      const maxBultos = Math.floor((b.peso_fresco * 0.45 + remanentePrevio) / pesoBulto);
       accion += `
         <div class="op-action" onclick="event.stopPropagation()">
-          <div class="op-preview">Peso fresco: <b>${b.peso_fresco} kg</b> · Rango esperado de peso seco total (G1+G2): <b>${minKg} kg – ${maxKg} kg</b></div>
+          <div class="op-preview">Peso fresco: <b>${b.peso_fresco} kg</b> · Remanente de grado 1 ya en mezcla (de baches anteriores de ${DENOM[b.denom].label}): <b>${remanentePrevio} kg</b> · Bultos esperados aprox. (de ${pesoBulto} kg c/u): <b>${minBultos} – ${maxBultos}</b></div>
           <div class="row">
-            <div class="field"><label>Ensacado grado 1 (kg)</label><input type="number" id="mov-g1-${b.codigo}" min="0" step="0.1"></div>
+            <div class="field"><label>Bultos de grado 1 llenados (de ${pesoBulto} kg c/u)</label><input type="number" id="mov-bultos-${b.codigo}" min="0" step="1"></div>
+            <div class="field"><label>Remanente resultante de grado 1 (kg)</label><input type="number" id="mov-remanente-${b.codigo}" min="0" step="0.1"></div>
             <div class="field"><label>Ensacado grado 2 (kg)</label><input type="number" id="mov-g2-${b.codigo}" min="0" step="0.1"></div>
             <div class="field"><label>Impurezas / grado 3 (kg)</label><input type="number" id="mov-imp-${b.codigo}" min="0" step="0.1"></div>
             <div class="field"><label>Fecha y hora real</label><input type="datetime-local" id="mov-hora-${b.codigo}" value="${toLocalInputValue(new Date())}"></div>
+          </div>
+          <div class="op-preview" style="margin-top:4px;">Prueba de corte (muestra de 50 granos)</div>
+          <div class="row">
+            <div class="field"><label>Granos marrones</label><input type="number" id="mov-gm-${b.codigo}" min="0" max="50" step="1"></div>
+            <div class="field"><label>Granos marrones violeta</label><input type="number" id="mov-gmv-${b.codigo}" min="0" max="50" step="1"></div>
+            <div class="field"><label>Granos violetas</label><input type="number" id="mov-gv-${b.codigo}" min="0" max="50" step="1"></div>
+            <div class="field"><label>Granos con moho o pizarra</label><input type="number" id="mov-gmoho-${b.codigo}" min="0" max="50" step="1"></div>
           </div>
           <div id="mov-msg-${b.codigo}"></div>
           <button class="big" onclick="registrarEmpaque('${b.codigo}')">Registrar empaque</button>
@@ -422,7 +483,7 @@ function renderOpDashGrid(){
     let excedidos = [];
     enEtapa.forEach(b=>{
       const horas = (now - new Date(b.horaInicioEtapa))/3600000;
-      const lim = limiteHoras(idx);
+      const lim = limiteHoras(idx, b.denom);
       if(lim!=null && horas>lim) excedidos.push(`${b.codigo} (+${(horas-lim).toFixed(1)} h)`);
     });
     html += `

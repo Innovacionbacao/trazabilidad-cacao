@@ -43,6 +43,7 @@
   <button data-tab="proyeccion">Proyección</button>
   <button data-tab="trazabilidad">Trazabilidad</button>
   <button data-tab="lotes">Inventario</button>
+  <button data-tab="despachos">Despachos</button>
 </nav>
 
 <main>
@@ -120,11 +121,18 @@
   </div>
 
   <div class="panel" id="panel-proyeccion">
-    <p class="block-title">Proyección de saturación de capacidad por etapa (próximos 7 días)</p>
+    <div class="field" style="max-width:220px; margin-bottom:16px;">
+      <label>Horizonte de la proyección (para planeación de personal)</label>
+      <select id="proy-dias">
+        <option value="7">Próximos 7 días</option>
+        <option value="15">Próximos 15 días</option>
+      </select>
+    </div>
+    <p class="block-title" id="proy-capacidad-titulo">Proyección de saturación de capacidad por etapa</p>
     <div id="proy-capacidad-alertas" style="margin-bottom:12px;"></div>
     <div id="proy-capacidad-wrap" style="overflow-x:auto; margin-bottom:28px;"></div>
 
-    <p class="block-title">Proyección de etapa por bache (próximos 7 días)</p>
+    <p class="block-title" id="proy-titulo">Proyección de etapa por bache</p>
     <div id="proy-wrap"></div>
 
     <div class="section-gap">
@@ -172,6 +180,35 @@
       <div id="inventario-secundario-resumen"></div>
       <p class="op-meta" style="margin-top:10px;">El despacho de este inventario lo autoriza el jefe de producción desde Panel → Lotes de venta.</p>
     </div>
+
+    <div class="section-gap">
+      <p class="block-title">Remanente de grado 1 (bultos incompletos, por denominación)</p>
+      <div id="remanente-g1-resumen"></div>
+      <p class="op-meta" style="margin-top:10px;">Se consolida automáticamente con el siguiente bache de esa denominación que se empaque.</p>
+    </div>
+  </div>
+
+  <div class="panel" id="panel-despachos">
+    <div class="dash-header">
+      <h2 class="dash-title">Lotes despachados</h2>
+      <div class="dash-actions"><button class="secondary" id="btn-export-despachos">Exportar tabla (CSV)</button></div>
+    </div>
+    <div class="report-card">
+      <p class="block-title">Filtros</p>
+      <div class="mapa-form">
+        <div class="field"><label>Denominación</label>
+          <select id="desp-f-denom">
+            <option value="todas">Todas</option>
+            <option value="ccn51">CCN-51</option>
+            <option value="aromatico">Aromático</option>
+            <option value="upia">Upia</option>
+          </select>
+        </div>
+        <div class="field"><label>Desde</label><input type="date" id="desp-f-desde"></div>
+        <div class="field"><label>Hasta</label><input type="date" id="desp-f-hasta"></div>
+      </div>
+    </div>
+    <div class="lv-history" id="despachos-lista"></div>
   </div>
 
 </main>

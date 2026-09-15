@@ -323,11 +323,11 @@ function proyeccionCapacidadEtapas(dias){
   activos.forEach(b=>{
     // Construir el intervalo [inicio, fin) de cada etapa futura de este bache.
     let cursor = new Date(b.horaInicioEtapa);
-    let lim = limiteHoras(b.etapaIdx);
+    let lim = limiteHoras(b.etapaIdx, b.denom);
     let fin = new Date(cursor.getTime() + (lim!=null?lim:0)*3600000);
     const intervalos = [{ idx: b.etapaIdx, inicio: cursor, fin }];
     for(let i=b.etapaIdx+1; i<=6; i++){
-      const l = limiteHoras(i);
+      const l = limiteHoras(i, b.denom);
       const inicio2 = fin;
       fin = new Date(inicio2.getTime() + (l!=null?l:0)*3600000);
       intervalos.push({ idx: i, inicio: inicio2, fin });
@@ -351,7 +351,8 @@ function proyeccionCapacidadEtapas(dias){
 }
 
 function renderProyeccionCapacidad(){
-  const dias = 7;
+  const dias = parseInt(document.getElementById('proy-dias').value, 10) || 7;
+  document.getElementById('proy-capacidad-titulo').textContent = `Proyección de saturación de capacidad por etapa (próximos ${dias} días)`;
   const ocupacion = proyeccionCapacidadEtapas(dias);
   const hoy = new Date();
 
@@ -382,18 +383,18 @@ function renderProyeccionCapacidad(){
   document.getElementById('proy-capacidad-wrap').innerHTML = `<table class="proy"><thead><tr><th>Etapa</th>${headerCols}</tr></thead><tbody>${rows}</tbody></table>`;
   document.getElementById('proy-capacidad-alertas').innerHTML = alertas.length
     ? alertas.join('')
-    : '<div class="msg ok">No se proyecta saturación de capacidad en los próximos 7 días.</div>';
+    : `<div class="msg ok">No se proyecta saturación de capacidad en los próximos ${dias} días.</div>`;
 }
 
 function computeProyeccion(b, dias){
   const now = new Date();
   const boundaries = [];
   let cursor = new Date(b.horaInicioEtapa);
-  let lim = limiteHoras(b.etapaIdx);
+  let lim = limiteHoras(b.etapaIdx, b.denom);
   cursor = new Date(cursor.getTime() + (lim!=null?lim:0)*3600000);
   boundaries.push({idx:b.etapaIdx, fin:cursor});
   for(let i=b.etapaIdx+1; i<=6; i++){
-    const l = limiteHoras(i);
+    const l = limiteHoras(i, b.denom);
     cursor = new Date(cursor.getTime() + (l!=null?l:0)*3600000);
     boundaries.push({idx:i, fin:cursor});
   }
@@ -410,12 +411,13 @@ function computeProyeccion(b, dias){
 
 function renderProyeccion(){
   const wrap = document.getElementById('proy-wrap');
+  const dias = parseInt(document.getElementById('proy-dias').value, 10) || 7;
+  document.getElementById('proy-titulo').textContent = `Proyección de etapa por bache (próximos ${dias} días)`;
   const activos = DATA.baches.filter(b=>ACTIVE_INDICES.includes(b.etapaIdx));
   if(activos.length===0){
     wrap.innerHTML = '<div class="empty">No hay baches en proceso para proyectar.</div>';
     return;
   }
-  const dias = 7;
   const hoy = new Date();
   let headerCols = '';
   for(let d=0; d<dias; d++){
@@ -438,10 +440,10 @@ function proyeccionBodega(dias){
   const arrivals = [];
   DATA.baches.filter(b=>ACTIVE_INDICES.includes(b.etapaIdx)).forEach(b=>{
     let cursor = new Date(b.horaInicioEtapa);
-    let lim = limiteHoras(b.etapaIdx);
+    let lim = limiteHoras(b.etapaIdx, b.denom);
     cursor = new Date(cursor.getTime() + (lim!=null?lim:0)*3600000);
     for(let i=b.etapaIdx+1; i<=6; i++){
-      const l = limiteHoras(i);
+      const l = limiteHoras(i, b.denom);
       cursor = new Date(cursor.getTime() + (l!=null?l:0)*3600000);
     }
     arrivals.push({fecha: cursor, kg: b.peso_fresco * factorConversionActual(), codigo: b.codigo, denom: b.denom});
@@ -512,6 +514,16 @@ function renderInventarioSecundario(){
     </div>`;
 }
 
+function renderRemanenteG1(){
+  const r = DATA.remanenteG1;
+  document.getElementById('remanente-g1-resumen').innerHTML = `
+    <div class="dash-grid">
+      <div class="dash-card"><div class="n">${(r.ccn51||0).toFixed(1)}</div><div class="label">CCN-51 (kg)</div></div>
+      <div class="dash-card"><div class="n">${(r.aromatico||0).toFixed(1)}</div><div class="label">Aromático (kg)</div></div>
+      <div class="dash-card"><div class="n">${(r.upia||0).toFixed(1)}</div><div class="label">Upia (kg)</div></div>
+    </div>`;
+}
+
 function renderInventarioEmpacado(){
   const pendientes = DATA.baches.filter(b=>b.etapaIdx===7 && disponibleLV(b) > 0)
     .sort((a,b)=> new Date(b.horaInicioEtapa) - new Date(a.horaInicioEtapa));
@@ -522,31 +534,10 @@ function renderInventarioEmpacado(){
     return `
     <div class="lv-history-item">
       <div><span class="tag" style="background:${DENOM[b.denom].color}">${DENOM[b.denom].label}</span> <span class="mono" style="margin-left:8px;">${b.codigo}</span></div>
-      <div class="op-meta">Disponible: ${disp} kg secos (grado 1)${parcial} · ${Math.floor(disp/69)} sacos · G2 ${b.peso_g2 ?? 0} kg e impurezas ${b.peso_impurezas ?? 0} kg ya en inventario común</div>
+      <div class="op-meta">Disponible: ${disp} kg secos (grado 1)${parcial} · ${Math.floor(disp/DATA.pesoBulto)} sacos · G2 ${b.peso_g2 ?? 0} kg e impurezas ${b.peso_impurezas ?? 0} kg ya en inventario común</div>
       <div class="op-meta">${b.liberado ? `Liberado por ${b.liberadoPor}` : 'Pendiente de liberación (Administrador)'}</div>
     </div>`;
   }).join('') : '<div class="empty">No hay baches empacados pendientes de lote de venta.</div>';
-}
-
-async function despacharLote(codigo){
-  const l = DATA.lotes.find(x=>x.codigo===codigo);
-  const horaInput = document.getElementById('desp-hora-'+codigo);
-  const encargadoInput = document.getElementById('desp-encargado-'+codigo);
-  const remisionInput = document.getElementById('desp-remision-'+codigo);
-  const empresaInput = document.getElementById('desp-empresa-'+codigo);
-  const encargado = encargadoInput.value.trim();
-  const remision = remisionInput.value.trim();
-  const empresa = empresaInput.value.trim();
-  const msgEl = document.getElementById('desp-msg-'+codigo);
-  if(!encargado || !remision || !empresa){
-    msgEl.innerHTML = '<div class="msg err">Completa encargado, N° de remisión y empresa de despacho.</div>';
-    return;
-  }
-  const hora = horaInput.value ? new Date(horaInput.value) : new Date();
-  l.despacho = { fecha: hora.toISOString(), encargado, remision, empresa };
-  registrarMovimiento('Lote despachado', `${codigo}: remisión ${remision}, transporta ${empresa}`, encargado);
-  await save();
-  render();
 }
 
 function renderLotesHistorial(){
@@ -556,15 +547,7 @@ function renderLotesHistorial(){
     const bultosDetalle = (l.detalleBultos||[]).map(d=>`${d.codigo}: ${d.bultos} sacos (${d.kg} kg)`).join(' · ');
     const despachoInfo = l.despacho
       ? `<div class="msg ok" style="margin-top:10px;">Despachado ${fmtDateTime(new Date(l.despacho.fecha))} · Encargado: ${l.despacho.encargado} · Remisión ${l.despacho.remision} · Transporta: ${l.despacho.empresa}</div>`
-      : `
-        <div class="row" style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;">
-          <div class="field" style="flex:1; min-width:160px; margin-bottom:0;"><label>Fecha y hora de despacho</label><input type="datetime-local" id="desp-hora-${l.codigo}" value="${toLocalInputValue(new Date())}"></div>
-          <div class="field" style="flex:1; min-width:160px; margin-bottom:0;"><label>Encargado</label><input type="text" id="desp-encargado-${l.codigo}"></div>
-          <div class="field" style="flex:1; min-width:160px; margin-bottom:0;"><label>N° remisión de salida</label><input type="text" id="desp-remision-${l.codigo}"></div>
-          <div class="field" style="flex:1; min-width:160px; margin-bottom:0;"><label>Empresa de despacho</label><input type="text" id="desp-empresa-${l.codigo}"></div>
-        </div>
-        <div id="desp-msg-${l.codigo}"></div>
-        <button onclick="despacharLote('${l.codigo}')" style="margin-top:10px;">Marcar como despachado</button>`;
+      : `<div class="op-meta" style="margin-top:10px;">Pendiente de despacho — se autoriza desde Panel → Lotes de venta.</div>`;
     return `
       <div class="lv-history-item" style="flex-direction:column; align-items:stretch;">
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
@@ -575,6 +558,45 @@ function renderLotesHistorial(){
         ${despachoInfo}
       </div>`;
   }).join('') : '<div class="empty">Aún no se han generado lotes de venta.</div>';
+}
+
+/* ---------- DESPACHOS (lotes de venta ya despachados) ---------- */
+function lotesDespachadosFiltrados(){
+  const denomF = document.getElementById('desp-f-denom').value;
+  const desde = document.getElementById('desp-f-desde').value;
+  const hasta = document.getElementById('desp-f-hasta').value;
+  return DATA.lotes.filter(l=>{
+    if(!l.despacho) return false;
+    if(denomF!=='todas' && l.denom!==denomF) return false;
+    const f = l.despacho.fecha.slice(0,10);
+    if(desde && f < desde) return false;
+    if(hasta && f > hasta) return false;
+    return true;
+  }).sort((a,b)=> b.despacho.fecha.localeCompare(a.despacho.fecha));
+}
+
+function renderDespachosTab(){
+  const lotes = lotesDespachadosFiltrados();
+  const wrap = document.getElementById('despachos-lista');
+  wrap.innerHTML = lotes.length ? lotes.map(l=>`
+    <div class="lv-history-item" style="flex-direction:column; align-items:stretch;">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+        <div><span class="tag" style="background:${DENOM[l.denom].color}">${DENOM[l.denom].label}</span> <span class="mono" style="margin-left:8px;">${l.codigo}</span></div>
+        <div class="op-meta">${(l.total_kg/1000).toFixed(2)} ton · generado por ${l.generadoPor||'—'}</div>
+      </div>
+      <div class="op-meta" style="margin-top:6px;">Despachado ${fmtDateTime(new Date(l.despacho.fecha))} · Encargado: ${l.despacho.encargado} · Remisión ${l.despacho.remision} · Transporta: ${l.despacho.empresa}${l.despacho.autorizadoPor ? ` · Autorizó: ${l.despacho.autorizadoPor}` : ''}</div>
+    </div>`).join('') : '<div class="empty">No hay lotes despachados con estos filtros.</div>';
+}
+
+function exportarDespachosCSV(){
+  const lotes = lotesDespachadosFiltrados();
+  const cols = ['codigo_lv','denominacion','total_kg','baches','fecha_despacho','encargado','remision','empresa','autorizado_por'];
+  const filas = lotes.map(l=>[
+    l.codigo, l.denom, l.total_kg, (l.baches||[]).join(' '),
+    l.despacho.fecha.slice(0,10), l.despacho.encargado, l.despacho.remision, l.despacho.empresa, l.despacho.autorizadoPor || ''
+  ]);
+  const csv = [cols.join(',')].concat(filas.map(f=>f.map(csvEscape).join(','))).join('\n');
+  descargarArchivo('lotes-despachados.csv', csv, 'text/csv');
 }
 
 /* ---------- RENDER Y ARRANQUE DE ESTA PÁGINA ---------- */
@@ -592,7 +614,9 @@ function render(){
   renderProyeccionBodega();
   renderInventarioEmpacado();
   renderInventarioSecundario();
+  renderRemanenteG1();
   renderLotesHistorial();
+  renderDespachosTab();
 }
 
 inicializarTabs();
@@ -613,5 +637,10 @@ document.getElementById('dash-hasta').addEventListener('change', render);
 document.getElementById('dash-denom').addEventListener('change', render);
 document.getElementById('btn-export-dashboard-csv').addEventListener('click', exportarDashboardCSV);
 document.getElementById('btn-print-dashboard').addEventListener('click', imprimirDashboard);
+document.getElementById('desp-f-denom').addEventListener('change', render);
+document.getElementById('desp-f-desde').addEventListener('change', render);
+document.getElementById('desp-f-hasta').addEventListener('change', render);
+document.getElementById('btn-export-despachos').addEventListener('click', exportarDespachosCSV);
+document.getElementById('proy-dias').addEventListener('change', render);
 
 load();

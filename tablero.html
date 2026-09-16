@@ -21,6 +21,7 @@
 </header>
 
 <div class="action-bar">
+  <span class="operario-display">Tablero: <b id="gate-usuario-nombre">—</b> <a href="#" id="btn-cambiar-usuario">cambiar</a></span>
   <nav class="page-links">
     <a href="index.html">Captura</a>
     <a href="tablero.html" class="current">Tablero</a>
@@ -32,6 +33,7 @@
   <div class="gate-card">
     <img src="logo-bacao.png" alt="Bacao" class="gate-logo">
     <h2>Trazabilidad PHC — Tablero</h2>
+    <div class="field"><label>Tu nombre</label><input type="text" id="gate-nombre" autocomplete="off"></div>
     <div class="field"><label>Clave de acceso</label><input type="password" id="gate-clave" autocomplete="off"></div>
     <div id="gate-msg"></div>
     <button id="gate-btn" class="big">Entrar</button>

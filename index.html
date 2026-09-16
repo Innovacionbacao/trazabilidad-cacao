@@ -52,40 +52,42 @@
     <p class="block-title">Recepción reciente</p>
     <div class="dash-grid" id="resumen-hoy-ayer" style="margin-bottom:24px;"></div>
 
-    <p class="block-title">Registrar pesaje de fruto fresco</p>
-    <div class="form-grid">
-      <div class="field">
-        <label>Fecha y hora de entrada</label>
-        <input type="datetime-local" id="f-fecha">
+    <div class="report-card">
+      <p class="block-title" style="margin-top:0;">Registrar pesaje de fruto fresco</p>
+      <div class="form-grid">
+        <div class="field">
+          <label>Fecha y hora de entrada</label>
+          <input type="datetime-local" id="f-fecha">
+        </div>
+        <div class="field">
+          <label>Denominación</label>
+          <select id="f-denom">
+            <option value="ccn51">CCN-51</option>
+            <option value="aromatico">Aromático</option>
+            <option value="upia">Upia</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Peso de este pesaje (kg)</label>
+          <input type="number" id="f-peso" min="0" step="0.1">
+        </div>
+        <div class="field">
+          <label>N° registro báscula</label>
+          <input type="text" id="f-bascula">
+        </div>
+        <div style="grid-column:1/-1; display:flex; align-items:center; gap:8px; margin-bottom:12px;">
+          <input type="checkbox" id="f-directo" style="width:auto;">
+          <label for="f-directo" style="font-size:13px; color:var(--ink-dim);">Enviar directo a despulpado (omitir recepción en bines)</label>
+        </div>
       </div>
-      <div class="field">
-        <label>Denominación</label>
-        <select id="f-denom">
-          <option value="ccn51">CCN-51</option>
-          <option value="aromatico">Aromático</option>
-          <option value="upia">Upia</option>
-        </select>
-      </div>
-      <div class="field">
-        <label>Peso de este pesaje (kg)</label>
-        <input type="number" id="f-peso" min="0" step="0.1">
-      </div>
-      <div class="field">
-        <label>N° registro báscula</label>
-        <input type="text" id="f-bascula">
-      </div>
-      <div style="grid-column:1/-1; display:flex; align-items:center; gap:8px; margin-bottom:12px;">
-        <input type="checkbox" id="f-directo" style="width:auto;">
-        <label for="f-directo" style="font-size:13px; color:var(--ink-dim);">Enviar directo a despulpado (omitir recepción en bines)</label>
-      </div>
+      <div class="preview-codigo">Código de bache del día: <b id="codigo-preview">—</b></div>
+      <div class="preview-codigo" id="bines-preview"></div>
+      <div id="form-msg"></div>
+      <button id="btn-registrar" style="margin-top:12px;">Registrar pesaje</button>
     </div>
-    <div class="preview-codigo">Código de bache del día: <b id="codigo-preview">—</b></div>
-    <div class="preview-codigo" id="bines-preview"></div>
-    <div id="form-msg"></div>
-    <button id="btn-registrar" style="margin-top:12px;">Registrar pesaje</button>
 
-    <div class="section-gap">
-      <p class="block-title">Entrada de cacao LOCAL (inventario aparte, sin proceso)</p>
+    <div class="report-card">
+      <p class="block-title" style="margin-top:0;">Entrada de cacao LOCAL (inventario aparte, sin proceso)</p>
       <p class="op-meta" style="margin-bottom:12px;">Cacao LOCAL fresco, pendiente de secar: <b id="cacao-local-total">0.00</b> kg</p>
       <div class="row" style="display:flex; gap:10px; flex-wrap:wrap;">
         <div class="field" style="flex:1; min-width:160px; margin-bottom:0;"><label>Peso (kg)</label><input type="number" id="local-peso" min="0" step="0.1"></div>
@@ -97,11 +99,15 @@
   </div>
 
   <div class="panel" id="panel-operacion">
-    <p class="block-title">Flujo de inventario</p>
-    <div style="overflow-x:auto; margin-bottom:26px;"><div id="flujo-svg"></div></div>
+    <div class="report-card">
+      <p class="block-title" style="margin-top:0;">Flujo de inventario</p>
+      <div id="flujo-svg"></div>
+    </div>
 
-    <p class="block-title">Capacidad ocupada por unidad de proceso</p>
-    <div id="cap-table" style="margin-bottom:28px;"></div>
+    <div class="report-card">
+      <p class="block-title" style="margin-top:0;">Capacidad ocupada por unidad de proceso</p>
+      <div id="cap-table"></div>
+    </div>
 
     <p class="block-title">Baches por unidad de proceso (excesos de tiempo)</p>
     <div class="dash-grid" id="op-dash-grid" style="margin-bottom:28px;"></div>

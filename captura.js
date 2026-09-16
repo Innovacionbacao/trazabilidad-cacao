@@ -42,7 +42,7 @@ function renderResumenHoyAyer(){
   const pesajesAyer = deAyer.reduce((s,b)=>s+(b.basculas||[]).length,0);
 
   document.getElementById('resumen-hoy-ayer').innerHTML = `
-    <div class="dash-card"><div class="n">${(kgHoy/1000).toFixed(2)}</div><div class="label">ton recibidas hoy (${deHoy.length} bache${deHoy.length===1?'':'s'})</div></div>
+    <div class="hero-kpi"><div class="n">${(kgHoy/1000).toFixed(2)} <span style="font-size:14px;">ton</span></div><div class="label">Recibidas hoy (${deHoy.length} bache${deHoy.length===1?'':'s'})</div></div>
     <div class="dash-card"><div class="n">${pesajesHoy}</div><div class="label">pesajes hoy</div></div>
     <div class="dash-card"><div class="n">${(kgAyer/1000).toFixed(2)}</div><div class="label">ton recibidas ayer (${deAyer.length} bache${deAyer.length===1?'':'s'})</div></div>
     <div class="dash-card"><div class="n">${pesajesAyer}</div><div class="label">pesajes ayer</div></div>
@@ -452,7 +452,7 @@ function renderOpCard(b){
   }
 
   return `
-    <div class="op-card ${opSeleccionado===b.codigo?'selected':''}" onclick="seleccionarOp('${b.codigo}')">
+    <div class="op-card ${opSeleccionado===b.codigo?'selected':''}" style="border-left:4px solid ${denomInfo.color};" onclick="seleccionarOp('${b.codigo}')">
       <div class="op-top">
         <span class="tag" style="background:${denomInfo.color}">${denomInfo.label}</span>
         <span class="op-codigo">${b.codigo}</span>
@@ -496,10 +496,10 @@ function renderOpDashGrid(){
       if(lim!=null && horas>lim) excedidos.push(`${b.codigo} (+${(horas-lim).toFixed(1)} h)`);
     });
     html += `
-      <div class="dash-card" ${excedidos.length ? `title="${excedidos.join(', ')}"` : ''}>
-        <div class="n">${enEtapa.length}</div>
-        <div class="label">${STAGES[idx]}</div>
-        ${excedidos.length ? `<details style="margin-top:8px;"><summary style="cursor:pointer; color:var(--warn); font-size:12px;">${excedidos.length} excedido(s)</summary><div class="excedidos" style="margin-top:6px;">${excedidos.join(', ')}</div></details>` : ''}
+      <div class="stat" ${excedidos.length ? `title="${excedidos.join(', ')}"` : ''}>
+        <div class="n ${excedidos.length?'warn':''}">${enEtapa.length}</div>
+        <div class="l">${STAGES[idx]}</div>
+        ${excedidos.length ? `<details style="margin-top:6px;"><summary style="cursor:pointer; color:var(--warn); font-size:11.5px;">${excedidos.length} excedido(s)</summary><div style="margin-top:6px; font-size:11.5px; color:var(--ink-dim);">${excedidos.join(', ')}</div></details>` : ''}
       </div>`;
   }
   grid.innerHTML = html;
@@ -507,50 +507,45 @@ function renderOpDashGrid(){
 
 /* ---------- FLUJO Y CAPACIDAD ---------- */
 function renderFlujo(){
-  const boxW = 128, boxH = 96, gap = 42, startX = 16, y = 14;
-  let boxesSvg = '', arrowsSvg = '';
-  UNIDADES.forEach((idx,i)=>{
+  const datos = UNIDADES.map(idx=>{
     const {count, ocupText, excedidoCap} = agregadoEtapa(idx);
-    const x = startX + i*(boxW+gap);
-    const borderColor = excedidoCap ? 'var(--warn)' : (count>0 ? 'var(--amber)' : 'var(--line)');
-    boxesSvg += `
-      <g>
-        <rect x="${x}" y="${y}" width="${boxW}" height="${boxH}" rx="3" style="fill:var(--panel-2); stroke:${borderColor}; stroke-width:1.5;"/>
-        <text x="${x+boxW/2}" y="${y+20}" text-anchor="middle" style="font-size:11px; fill:var(--ink-dim); font-family:'Space Grotesk';">${STAGES[idx]}</text>
-        <text x="${x+boxW/2}" y="${y+46}" text-anchor="middle" style="font-size:20px; font-weight:600; fill:var(--ink); font-family:'IBM Plex Mono';">${count}</text>
-        <text x="${x+boxW/2}" y="${y+64}" text-anchor="middle" style="font-size:10px; fill:var(--ink-dim); font-family:'Space Grotesk';">baches</text>
-        <text x="${x+boxW/2}" y="${y+84}" text-anchor="middle" style="font-size:11px; fill:${excedidoCap?'var(--warn)':'var(--ink-dim)'}; font-family:'IBM Plex Mono';">${ocupText}</text>
-      </g>`;
-    if(i < UNIDADES.length-1){
-      const ax1 = x+boxW, ax2 = x+boxW+gap, ay = y+boxH/2;
-      arrowsSvg += `<line x1="${ax1}" y1="${ay}" x2="${ax2-6}" y2="${ay}" style="stroke:var(--line); stroke-width:1.5;" marker-end="url(#arrowhead)"/>`;
-    }
+    return {idx, count, ocupText, excedidoCap};
   });
-  const totalWidth = startX*2 + UNIDADES.length*boxW + (UNIDADES.length-1)*gap;
-  document.getElementById('flujo-svg').innerHTML = `
-    <svg viewBox="0 0 ${totalWidth} ${boxH+28}" style="width:100%; min-width:${totalWidth}px; display:block;">
-      <defs>
-        <marker id="arrowhead" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
-          <path d="M0,0 L8,4 L0,8 Z" style="fill:var(--line);"/>
-        </marker>
-      </defs>
-      ${arrowsSvg}
-      ${boxesSvg}
-    </svg>`;
+  const maxCount = Math.max(...datos.map(d=>d.count), 1);
+  const flex = (v) => Math.max(v/maxCount, 0.16).toFixed(3);
+  const tonos = ['var(--amber-1)','var(--amber-2)','var(--amber-3)','var(--amber-3)','var(--amber)','var(--amber)'];
+
+  const segs = datos.map((d,i)=>{
+    const bg = d.excedidoCap ? 'var(--warn)' : tonos[i % tonos.length];
+    const txtColor = (bg==='var(--amber-1)'||bg==='var(--amber-2)') ? '#3d2c12' : '#fff';
+    return `<div class="pipe-seg" style="flex:${flex(d.count)}; background:${bg}; color:${txtColor};">
+      <span class="n">${d.count}</span><span class="l">${STAGES[d.idx]} · ${d.ocupText}</span>
+    </div>`;
+  });
+  const withArrows = segs.map((s,i)=> i < segs.length-1 ? s + '<div class="pipe-arrow">›</div>' : s).join('');
+
+  document.getElementById('flujo-svg').innerHTML = `<div class="pipe-wrap"><div class="pipe">${withArrows}</div></div>`;
 }
 
 function renderCapTable(){
   const rows = UNIDADES.map(idx=>{
     const {ocupText, pct, excedidoCap} = agregadoEtapa(idx);
-    const barColor = excedidoCap ? 'var(--warn)' : 'var(--ok)';
+    const color = excedidoCap ? colorSaturacionCaptura(100) : colorSaturacionCaptura(pct);
     return `
-      <div class="cap-row">
-        <div>${STAGES[idx]}</div>
-        <div class="cap-bar"><div class="cap-fill" style="width:${pct}%; background:${barColor};"></div></div>
-        <div class="cap-text ${excedidoCap?'excedido':''}">${ocupText}</div>
+      <div class="stage-item" style="border-top:none; border-bottom:1px solid var(--panel-2); padding:10px 4px;">
+        <span>${STAGES[idx]}</span>
+        <span style="display:flex; align-items:center; gap:10px;">
+          <span class="mono" style="font-size:12px; color:var(--ink-dim);">${ocupText}</span>
+          <span class="mono" style="font-weight:700; min-width:42px; text-align:right; padding:2px 8px; border-radius:5px; color:#fff; background:${color};">${pct.toFixed(0)}%</span>
+        </span>
       </div>`;
   }).join('');
   document.getElementById('cap-table').innerHTML = rows;
+}
+function colorSaturacionCaptura(pct){
+  if(pct >= 100) return '#b23a2e';
+  if(pct >= 70) return '#c99a51';
+  return '#2f7a3d';
 }
 
 /* ---------- OPERARIO (identificación de quien usa la tableta) ---------- */

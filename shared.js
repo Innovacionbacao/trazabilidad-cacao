@@ -330,28 +330,70 @@ document.querySelectorAll('.admin-tab').forEach(btn=>{
 
 /* ---------- DATOS DE EJEMPLO ---------- */
 
-function inicializarGateSimple(clave, storageKey){
+function inicializarGateSimple(clave, storageKey, nombreStorageKey){
   const overlay = document.getElementById('gate-overlay');
+  const nombreInput = document.getElementById('gate-nombre');
   const claveInput = document.getElementById('gate-clave');
   const msg = document.getElementById('gate-msg');
   const btn = document.getElementById('gate-btn');
 
+  function nombreGuardado(){
+    try{ return (nombreStorageKey && localStorage.getItem(nombreStorageKey)) || ''; }catch(e){ return ''; }
+  }
+
+  function aplicarNombre(nombre){
+    // Si la página tiene un campo propio para el nombre (p. ej. "Jefe de
+    // producción" en Panel), se prellena solo para no escribirlo dos veces.
+    const campoPropio = document.getElementById('admin-nombre');
+    if(campoPropio && !campoPropio.value) campoPropio.value = nombre;
+    const display = document.getElementById('gate-usuario-nombre');
+    if(display) display.textContent = nombre;
+  }
+
   function verificar(){
     let ok = false;
     try{ ok = localStorage.getItem(storageKey) === 'si'; }catch(e){ /* sin localStorage */ }
-    if(ok){ overlay.style.display = 'none'; }
-    else{ overlay.style.display = 'flex'; claveInput.focus(); }
+    if(ok){
+      overlay.style.display = 'none';
+      if(nombreInput) aplicarNombre(nombreGuardado());
+    }
+    else{
+      overlay.style.display = 'flex';
+      if(nombreInput) nombreInput.value = nombreGuardado();
+      (nombreInput || claveInput).focus();
+    }
   }
 
   btn.addEventListener('click', ()=>{
+    const nombre = nombreInput ? nombreInput.value.trim() : '';
+    if(nombreInput && !nombre){
+      msg.innerHTML = '<div class="msg err">Escribe tu nombre.</div>';
+      return;
+    }
     if(claveInput.value.trim() !== clave){
       msg.innerHTML = '<div class="msg err">Clave incorrecta.</div>';
       return;
     }
-    try{ localStorage.setItem(storageKey, 'si'); }catch(e){ /* sin localStorage: pedirá clave cada vez */ }
+    try{
+      localStorage.setItem(storageKey, 'si');
+      if(nombreInput && nombreStorageKey) localStorage.setItem(nombreStorageKey, nombre);
+    }catch(e){ /* sin localStorage: pedirá clave cada vez */ }
     overlay.style.display = 'none';
+    if(nombreInput) aplicarNombre(nombre);
   });
   claveInput.addEventListener('keydown', (e)=>{ if(e.key==='Enter') btn.click(); });
+
+  const btnCambiar = document.getElementById('btn-cambiar-usuario');
+  if(btnCambiar){
+    btnCambiar.addEventListener('click', (e)=>{
+      e.preventDefault();
+      overlay.style.display = 'flex';
+      if(nombreInput) nombreInput.value = nombreGuardado();
+      claveInput.value = '';
+      msg.innerHTML = '';
+      (nombreInput || claveInput).focus();
+    });
+  }
 
   verificar();
 }

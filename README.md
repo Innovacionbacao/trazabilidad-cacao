@@ -390,3 +390,11 @@ Había quedado mal desde una ronda anterior: pedía el "grado 1 pesado en kg" y 
 1. **Remanentes que se combinan automáticamente en un saco más**: el operario sigue reportando sacos (de este bache) y remanente (pesado aparte, de este bache) — pero ahora, si el remanente que ya estaba guardado de esa denominación **más** el remanente que acaba de reportar alcanzan para un saco completo (o más), el sistema agrega esos sacos extra solos al total del bache, y deja el remanente verdadero (lo que sobra después de formar esos sacos) como el nuevo remanente pendiente. El operario no tiene que hacer esa cuenta — el aviso de confirmación se lo muestra si pasó.
 
 2. **Botón "Devolver" en la misma línea de cada bache** (Panel → Despachos productos → Generar lote de venta), no debajo en su propia fila — como en el diseño original.
+
+## 24. Claves unificadas, nombre al entrar, y Captura al mismo nivel visual
+
+1. **Claves de Tablero y Panel unificadas a `phc2026`** (antes eran distintas: `phc-tablero-2026` y `phc-panel-2026`).
+
+2. **Tablero y Panel ahora piden el nombre junto con la clave**, igual que Captura. En Panel, ese nombre prellena automáticamente el campo "Jefe de producción" (no hay que escribirlo dos veces). En Tablero se ve en la barra superior ("Tablero: nombre — cambiar"), con opción de cambiarlo.
+
+3. **Captura llevada al mismo nivel visual que el resto**: el embudo de "Flujo de inventario" ahora es igual al de Dashboard/Inventario (con scroll), "Capacidad ocupada" muestra el mismo semáforo verde/ámbar/rojo con porcentaje que Proyección, las tarjetas de "excesos de tiempo" usan el mismo estilo que Panel → Seguimiento, cada bache en Operación tiene el borde de color de su denominación, y los formularios de Registro quedaron dentro de tarjetas — antes estaban sueltos. De paso until se corrigió otra referencia a la tipografía huérfana (`Space Grotesk`) que quedaba en el SVG del flujo de Captura.

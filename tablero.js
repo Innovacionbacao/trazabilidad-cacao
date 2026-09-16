@@ -702,7 +702,7 @@ function render(){
 }
 
 inicializarTabs();
-inicializarGateSimple('phc2026', 'acceso-valido-tablero');
+inicializarGateSimple('phc2026', 'acceso-valido-tablero', 'nombre-guardado-tablero');
 document.getElementById('trace-f-denom').addEventListener('change', render);
 document.getElementById('trace-f-desde').addEventListener('change', render);
 document.getElementById('trace-f-hasta').addEventListener('change', render);

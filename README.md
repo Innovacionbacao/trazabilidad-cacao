@@ -375,3 +375,12 @@ Se llevaron los 3 preliminares de diseño (Inventario, Dashboard/Proyección, Pa
 **Panel**: pestañas reordenadas — Seguimiento, Despachos productos (antes "Lotes de venta"), Editar baches, Movimientos primero (uso diario); Configuración y Datos al final (uso ocasional), con una barra de identificación fija arriba. Seguimiento muestra primero la cola de liberación (tarjetas colapsables con la prueba de corte) y despliega la lista de tiempo por etapa colapsada, agrupada, con excedidos siempre visibles arriba. Despachos productos separa Grado 2 e Impurezas en tarjetas propias y consolida el ciclo de Cacao LOCAL (secar → liberar → despachar) en una sola tarjeta. Configuración y Datos ahora son listas compactas tipo "ajustes", colapsadas por defecto.
 
 Todo funcionalmente probado de nuevo tras el rediseño (liberar con prueba de corte, generar y despachar lote, despachar grado 2/impurezas, ciclo completo de cacao LOCAL, devolver a liberación) — cero errores de consola en las 3 páginas.
+
+## 22. Corrección: empaque en número de sacos, no en kg
+
+Había quedado mal desde una ronda anterior: pedía el "grado 1 pesado en kg" y calculaba los sacos a partir de eso. Correcto ahora:
+
+- El operario reporta el **número de sacos llenados** (lo que realmente cuenta en planta).
+- El **remanente resultante** se pesa aparte y se ingresa directo en kg (no se deriva de ningún cálculo).
+- El homólogo en kg (lo que se registra como grado 1 del bache, `peso_g1`/`peso_final`) es simplemente **sacos × peso de bulto de esa denominación** (69 kg para CCN-51/Aromático, 50 kg para Upia).
+- El remanente previo de esa denominación se sigue mostrando como referencia antes de ensacar, para que el operario lo mezcle físicamente, pero ya no se suma "por dentro" — el remanente resultante que se guarda es exactamente el que se pesa y se escribe.

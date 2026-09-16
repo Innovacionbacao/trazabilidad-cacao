@@ -236,12 +236,14 @@ async function avanzarEtapa(codigo){
 
 async function registrarEmpaque(codigo){
   const b = DATA.baches.find(x=>x.codigo===codigo);
-  const g1Input = document.getElementById('mov-g1-'+codigo);
+  const bultosInput = document.getElementById('mov-bultos-'+codigo);
+  const remInput = document.getElementById('mov-remanente-'+codigo);
   const g2Input = document.getElementById('mov-g2-'+codigo);
   const impInput = document.getElementById('mov-imp-'+codigo);
   const horaInput = document.getElementById('mov-hora-'+codigo);
 
-  const g1Pesado = parseFloat(g1Input.value) || 0;
+  const bultos = parseInt(bultosInput.value) || 0;
+  const remanenteNuevo = parseFloat(remInput.value) || 0;
   const g2 = parseFloat(g2Input.value) || 0;
   const imp = parseFloat(impInput.value) || 0;
   const horaReal = horaInput.value ? new Date(horaInput.value) : new Date();
@@ -252,30 +254,25 @@ async function registrarEmpaque(codigo){
     msgEl.innerHTML = '<div class="msg err">Escribe tu nombre en "Operario" arriba antes de registrar el empaque.</div>';
     return;
   }
-  if(g1Pesado <= 0 && g2 <= 0){
-    msgEl.innerHTML = '<div class="msg err">Registra al menos el grado 1 o el grado 2 pesado.</div>';
+  const pesoBulto = pesoBultoDe(b.denom);
+  const bultosKg = Math.round(bultos * pesoBulto * 10) / 10;
+  if(bultos <= 0 && remanenteNuevo <= 0 && g2 <= 0){
+    msgEl.innerHTML = '<div class="msg err">Registra al menos sacos, remanente o grado 2.</div>';
     return;
   }
 
-  const pesoBulto = pesoBultoDe(b.denom);
   const remanentePrevio = DATA.remanenteG1[b.denom] || 0;
-  // El remanente de baches anteriores de esta misma denominación se suma
-  // automáticamente al grado 1 recién pesado, antes de calcular los bultos.
-  const totalG1 = g1Pesado + remanentePrevio;
-  const bultos = Math.floor(totalG1 / pesoBulto);
-  const bultosKg = Math.round(bultos * pesoBulto * 10) / 10;
-  const remanenteNuevo = Math.round((totalG1 - bultosKg) * 10) / 10;
-
-  const pesoSecoTotalAprox = g1Pesado + g2;
+  // Homólogo en kg de lo empacado: número de sacos × peso de bulto de esta denominación.
+  const pesoSecoTotalAprox = bultosKg + remanenteNuevo + g2;
   const factor = pesoSecoTotalAprox / b.peso_fresco;
   if(factor < 0.20 || factor > 0.45){
     const minKg = Math.round(b.peso_fresco * 0.20);
     const maxKg = Math.round(b.peso_fresco * 0.45);
-    msgEl.innerHTML = `<div class="msg err">El grado 1 + grado 2 de este bache (${pesoSecoTotalAprox} kg) está fuera del rango esperado para ${b.peso_fresco} kg de fresco: entre ${minKg} kg y ${maxKg} kg. Revisa los pesos.</div>`;
+    msgEl.innerHTML = `<div class="msg err">El total (${bultos} sacos = ${bultosKg} kg, + remanente ${remanenteNuevo} kg + grado 2 ${g2} kg = ${pesoSecoTotalAprox} kg) está fuera del rango esperado para ${b.peso_fresco} kg de fresco: entre ${minKg} kg y ${maxKg} kg. Revisa los datos.</div>`;
     return;
   }
 
-  if(!confirm(`¿Confirmas el empaque del bache ${codigo}? Grado 1 pesado ${g1Pesado} kg + remanente previo ${remanentePrevio} kg = ${totalG1} kg → ${bultos} bultos (${bultosKg} kg) a lote de venta, nuevo remanente ${remanenteNuevo} kg. G2 ${g2} kg · impurezas ${imp} kg. Esto lo pasa a Almacenado.`)) return;
+  if(!confirm(`¿Confirmas el empaque del bache ${codigo}? ${bultos} sacos (${bultosKg} kg) a lote de venta · remanente resultante ${remanenteNuevo} kg (remanente previo era ${remanentePrevio} kg) · G2 ${g2} kg · impurezas ${imp} kg. Esto lo pasa a Almacenado.`)) return;
 
   const inicio = new Date(b.horaInicioEtapa);
   const duracionHoras = (horaReal - inicio) / 3600000;
@@ -293,11 +290,11 @@ async function registrarEmpaque(codigo){
   b.remanenteResultante = remanenteNuevo;
   b.peso_g2 = g2;
   b.peso_impurezas = imp;
-  // Solo los bultos completos de grado 1 siguen el circuito formal de
-  // bache → lote de venta → despacho. El remanente (menos de un bulto) se
-  // guarda aparte para consolidarse con el siguiente bache de esta misma
-  // denominación que se empaque. El grado 2 y las impurezas van directo al
-  // inventario común de bodega.
+  // Solo los sacos completos de grado 1 siguen el circuito formal de
+  // bache → lote de venta → despacho. El remanente (lo que sobra sin llenar
+  // un saco completo, pesado aparte) se guarda para consolidarse con el
+  // siguiente bache de esta misma denominación que se empaque. El grado 2 y
+  // las impurezas van directo al inventario común de bodega.
   b.peso_g1 = bultosKg;
   b.peso_final = bultosKg;
   b.factorConversion = Math.round(factor*1000)/10;
@@ -308,7 +305,7 @@ async function registrarEmpaque(codigo){
   b.etapaIdx = 7;
   b.liberado = false;
   b.horaInicioEtapa = horaReal.toISOString();
-  registrarMovimiento('Empaque registrado', `Bache ${b.codigo}: G1 pesado ${g1Pesado} kg + remanente previo ${remanentePrevio} kg = ${bultos} bultos (${bultosKg} kg) a lote de venta · nuevo remanente ${remanenteNuevo} kg · G2 ${g2} kg e impurezas ${imp} kg a inventario común`, operario);
+  registrarMovimiento('Empaque registrado', `Bache ${b.codigo}: ${bultos} sacos (${bultosKg} kg) a lote de venta · remanente resultante ${remanenteNuevo} kg (previo ${remanentePrevio} kg) · G2 ${g2} kg e impurezas ${imp} kg a inventario común`, operario);
   opSeleccionado = null;
   await save();
   render();
@@ -403,13 +400,14 @@ function renderOpCard(b){
     if(b.etapaIdx === 6){
       const pesoBulto = pesoBultoDe(b.denom);
       const remanentePrevio = DATA.remanenteG1[b.denom] || 0;
-      const minG1 = Math.round(b.peso_fresco * 0.20);
-      const maxG1 = Math.round(b.peso_fresco * 0.45);
+      const minSacos = Math.floor((b.peso_fresco * 0.20) / pesoBulto);
+      const maxSacos = Math.floor((b.peso_fresco * 0.45) / pesoBulto);
       accion += `
         <div class="op-action" onclick="event.stopPropagation()">
-          <div class="op-preview">Peso fresco: <b>${b.peso_fresco} kg</b> · Remanente de grado 1 pendiente de baches anteriores de ${DENOM[b.denom].label}: <b>${remanentePrevio} kg</b> (se suma automáticamente al pesar el grado 1 de este bache) · Grado 1 esperado aprox. de este bache: <b>${minG1} – ${maxG1} kg</b></div>
+          <div class="op-preview">Peso fresco: <b>${b.peso_fresco} kg</b> · Remanente de ${DENOM[b.denom].label} disponible antes de ensacar (ya mézclalo con este bache): <b>${remanentePrevio} kg</b> · Sacos esperados aprox. (de ${pesoBulto} kg c/u): <b>${minSacos} – ${maxSacos}</b></div>
           <div class="row">
-            <div class="field"><label>Grado 1 pesado de este bache (kg, antes de ensacar)</label><input type="number" id="mov-g1-${b.codigo}" min="0" step="0.1"></div>
+            <div class="field"><label>Sacos de grado 1 llenados</label><input type="number" id="mov-bultos-${b.codigo}" min="0" step="1"></div>
+            <div class="field"><label>Remanente resultante (kg, pesado aparte)</label><input type="number" id="mov-remanente-${b.codigo}" min="0" step="0.1"></div>
             <div class="field"><label>Ensacado grado 2 (kg)</label><input type="number" id="mov-g2-${b.codigo}" min="0" step="0.1"></div>
             <div class="field"><label>Impurezas / grado 3 (kg)</label><input type="number" id="mov-imp-${b.codigo}" min="0" step="0.1"></div>
             <div class="field"><label>Fecha y hora real</label><input type="datetime-local" id="mov-hora-${b.codigo}" value="${toLocalInputValue(new Date())}"></div>

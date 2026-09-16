@@ -384,3 +384,9 @@ Había quedado mal desde una ronda anterior: pedía el "grado 1 pesado en kg" y 
 - El **remanente resultante** se pesa aparte y se ingresa directo en kg (no se deriva de ningún cálculo).
 - El homólogo en kg (lo que se registra como grado 1 del bache, `peso_g1`/`peso_final`) es simplemente **sacos × peso de bulto de esa denominación** (69 kg para CCN-51/Aromático, 50 kg para Upia).
 - El remanente previo de esa denominación se sigue mostrando como referencia antes de ensacar, para que el operario lo mezcle físicamente, pero ya no se suma "por dentro" — el remanente resultante que se guarda es exactamente el que se pesa y se escribe.
+
+## 23. Dos correcciones más sobre empaque y el pool de liberados
+
+1. **Remanentes que se combinan automáticamente en un saco más**: el operario sigue reportando sacos (de este bache) y remanente (pesado aparte, de este bache) — pero ahora, si el remanente que ya estaba guardado de esa denominación **más** el remanente que acaba de reportar alcanzan para un saco completo (o más), el sistema agrega esos sacos extra solos al total del bache, y deja el remanente verdadero (lo que sobra después de formar esos sacos) como el nuevo remanente pendiente. El operario no tiene que hacer esa cuenta — el aviso de confirmación se lo muestra si pasó.
+
+2. **Botón "Devolver" en la misma línea de cada bache** (Panel → Despachos productos → Generar lote de venta), no debajo en su propia fila — como en el diseño original.

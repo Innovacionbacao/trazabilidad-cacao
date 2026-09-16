@@ -255,24 +255,33 @@ async function registrarEmpaque(codigo){
     return;
   }
   const pesoBulto = pesoBultoDe(b.denom);
-  const bultosKg = Math.round(bultos * pesoBulto * 10) / 10;
   if(bultos <= 0 && remanenteNuevo <= 0 && g2 <= 0){
     msgEl.innerHTML = '<div class="msg err">Registra al menos sacos, remanente o grado 2.</div>';
     return;
   }
 
   const remanentePrevio = DATA.remanenteG1[b.denom] || 0;
-  // Homólogo en kg de lo empacado: número de sacos × peso de bulto de esta denominación.
-  const pesoSecoTotalAprox = bultosKg + remanenteNuevo + g2;
+  // El remanente ya existente de esta denominación se suma al remanente que
+  // reporta el operario de este bache; si esa suma alcanza para un saco
+  // completo (o más), se agrega automáticamente al lote de este bache — así
+  // el operario no tiene que hacer esa cuenta, solo reporta lo que ve.
+  const remanenteCombinado = Math.round((remanentePrevio + remanenteNuevo) * 10) / 10;
+  const sacosExtra = Math.floor(remanenteCombinado / pesoBulto);
+  const remanenteFinal = Math.round((remanenteCombinado - sacosExtra*pesoBulto) * 10) / 10;
+  const bultosFinal = bultos + sacosExtra;
+  const bultosKg = Math.round(bultosFinal * pesoBulto * 10) / 10;
+
+  const pesoSecoTotalAprox = bultosKg + remanenteFinal + g2;
   const factor = pesoSecoTotalAprox / b.peso_fresco;
   if(factor < 0.20 || factor > 0.45){
     const minKg = Math.round(b.peso_fresco * 0.20);
     const maxKg = Math.round(b.peso_fresco * 0.45);
-    msgEl.innerHTML = `<div class="msg err">El total (${bultos} sacos = ${bultosKg} kg, + remanente ${remanenteNuevo} kg + grado 2 ${g2} kg = ${pesoSecoTotalAprox} kg) está fuera del rango esperado para ${b.peso_fresco} kg de fresco: entre ${minKg} kg y ${maxKg} kg. Revisa los datos.</div>`;
+    msgEl.innerHTML = `<div class="msg err">El total (${bultosFinal} sacos = ${bultosKg} kg, + remanente ${remanenteFinal} kg + grado 2 ${g2} kg = ${pesoSecoTotalAprox} kg) está fuera del rango esperado para ${b.peso_fresco} kg de fresco: entre ${minKg} kg y ${maxKg} kg. Revisa los datos.</div>`;
     return;
   }
 
-  if(!confirm(`¿Confirmas el empaque del bache ${codigo}? ${bultos} sacos (${bultosKg} kg) a lote de venta · remanente resultante ${remanenteNuevo} kg (remanente previo era ${remanentePrevio} kg) · G2 ${g2} kg · impurezas ${imp} kg. Esto lo pasa a Almacenado.`)) return;
+  const avisoExtra = sacosExtra>0 ? ` (incluye ${sacosExtra} saco${sacosExtra===1?'':'s'} extra formado${sacosExtra===1?'':'s'} al combinar el remanente previo de ${remanentePrevio} kg con el nuevo remanente de ${remanenteNuevo} kg)` : '';
+  if(!confirm(`¿Confirmas el empaque del bache ${codigo}? ${bultos} sacos reportados${avisoExtra} → ${bultosFinal} sacos (${bultosKg} kg) a lote de venta · remanente final ${remanenteFinal} kg · G2 ${g2} kg · impurezas ${imp} kg. Esto lo pasa a Almacenado.`)) return;
 
   const inicio = new Date(b.horaInicioEtapa);
   const duracionHoras = (horaReal - inicio) / 3600000;
@@ -285,27 +294,28 @@ async function registrarEmpaque(codigo){
     duracionHoras, estado, limiteHoras: limite, ocupacion: '—'
   });
 
-  b.bultos = bultos;
+  b.bultos = bultosFinal;
   b.remanenteRecibido = remanentePrevio;
-  b.remanenteResultante = remanenteNuevo;
+  b.remanenteResultante = remanenteFinal;
   b.peso_g2 = g2;
   b.peso_impurezas = imp;
   // Solo los sacos completos de grado 1 siguen el circuito formal de
-  // bache → lote de venta → despacho. El remanente (lo que sobra sin llenar
-  // un saco completo, pesado aparte) se guarda para consolidarse con el
-  // siguiente bache de esta misma denominación que se empaque. El grado 2 y
-  // las impurezas van directo al inventario común de bodega.
+  // bache → lote de venta → despacho. El remanente final (lo que sobra sin
+  // llenar un saco completo, tras combinar con el remanente previo) se
+  // guarda para consolidarse con el siguiente bache de esta misma
+  // denominación que se empaque. El grado 2 y las impurezas van directo al
+  // inventario común de bodega.
   b.peso_g1 = bultosKg;
   b.peso_final = bultosKg;
   b.factorConversion = Math.round(factor*1000)/10;
-  DATA.remanenteG1[b.denom] = remanenteNuevo;
+  DATA.remanenteG1[b.denom] = remanenteFinal;
   DATA.inventarioSecundario.grado2 += g2;
   DATA.inventarioSecundario.impurezas += imp;
   b.contadoEnPoolG2 = true;
   b.etapaIdx = 7;
   b.liberado = false;
   b.horaInicioEtapa = horaReal.toISOString();
-  registrarMovimiento('Empaque registrado', `Bache ${b.codigo}: ${bultos} sacos (${bultosKg} kg) a lote de venta · remanente resultante ${remanenteNuevo} kg (previo ${remanentePrevio} kg) · G2 ${g2} kg e impurezas ${imp} kg a inventario común`, operario);
+  registrarMovimiento('Empaque registrado', `Bache ${b.codigo}: ${bultos} sacos reportados${avisoExtra} → ${bultosFinal} sacos (${bultosKg} kg) a lote de venta · remanente final ${remanenteFinal} kg · G2 ${g2} kg e impurezas ${imp} kg a inventario común`, operario);
   opSeleccionado = null;
   await save();
   render();
@@ -404,7 +414,7 @@ function renderOpCard(b){
       const maxSacos = Math.floor((b.peso_fresco * 0.45) / pesoBulto);
       accion += `
         <div class="op-action" onclick="event.stopPropagation()">
-          <div class="op-preview">Peso fresco: <b>${b.peso_fresco} kg</b> · Remanente de ${DENOM[b.denom].label} disponible antes de ensacar (ya mézclalo con este bache): <b>${remanentePrevio} kg</b> · Sacos esperados aprox. (de ${pesoBulto} kg c/u): <b>${minSacos} – ${maxSacos}</b></div>
+          <div class="op-preview">Peso fresco: <b>${b.peso_fresco} kg</b> · Remanente de ${DENOM[b.denom].label} pendiente de baches anteriores: <b>${remanentePrevio} kg</b> (el sistema lo suma automáticamente al remanente que reportes aquí; si entre los dos completan un saco, se agrega solo) · Sacos esperados aprox. (de ${pesoBulto} kg c/u): <b>${minSacos} – ${maxSacos}</b></div>
           <div class="row">
             <div class="field"><label>Sacos de grado 1 llenados</label><input type="number" id="mov-bultos-${b.codigo}" min="0" step="1"></div>
             <div class="field"><label>Remanente resultante (kg, pesado aparte)</label><input type="number" id="mov-remanente-${b.codigo}" min="0" step="0.1"></div>

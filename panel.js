@@ -596,14 +596,12 @@ function renderLotesPool(){
       if(checked) totalSel += disp;
       const parcial = disp < b.peso_final ? ` · ${b.peso_final-disp} kg ya en otro lote` : '';
       const btnDevolver = kgAsignadoLV(b)===0
-        ? `<button class="secondary" onclick="devolverALiberacion('${b.codigo}')" style="margin-top:8px;">↩ Devolver a liberación (antes de liberar)</button>`
-        : `<div class="op-meta" style="margin-top:6px;">Ya tiene grado 1 asignado a un lote de venta — no se puede devolver desde aquí.</div>`;
-      return `<div class="lv-pool-item" style="flex-direction:column; align-items:stretch;">
-        <div style="display:flex; align-items:center; gap:10px;">
-          <input type="checkbox" ${checked?'checked':''} onchange="toggleSeleccionLV('${b.codigo}')">
-          <span class="mono">${b.codigo}</span>
-          <span class="op-meta">${disp} kg de grado 1 disponibles · ${Math.floor(disp/pesoBultoDe(b.denom))} sacos${parcial}</span>
-        </div>
+        ? `<button class="secondary" onclick="devolverALiberacion('${b.codigo}')" style="margin-left:auto; padding:6px 12px; min-height:auto; font-size:12.5px; white-space:nowrap;">↩ Devolver</button>`
+        : '';
+      return `<div class="lv-pool-item">
+        <input type="checkbox" ${checked?'checked':''} onchange="toggleSeleccionLV('${b.codigo}')">
+        <span class="mono">${b.codigo}</span>
+        <span class="op-meta">${disp} kg de grado 1 disponibles · ${Math.floor(disp/pesoBultoDe(b.denom))} sacos${parcial}</span>
         ${btnDevolver}
       </div>`;
     }).join('');
@@ -899,7 +897,7 @@ function render(){
 }
 
 inicializarAdminTabs();
-inicializarGateSimple('phc2026', 'acceso-valido-panel');
+inicializarGateSimple('phc-panel-2026', 'acceso-valido-panel');
 document.getElementById('btn-guardar-mapa').addEventListener('click', guardarMapaMaestro);
 document.getElementById('btn-guardar-conversion').addEventListener('click', guardarMaestroConversion);
 document.getElementById('btn-guardar-capacidad').addEventListener('click', guardarCapacidadMaestro);

@@ -163,10 +163,10 @@
 
   /* Proyección */
   table.proy{width:100%; border-collapse:collapse; font-size:12.5px;}
-  table.proy th, table.proy td{border:1px solid var(--line); padding:8px 6px; text-align:center;}
-  table.proy th{color:var(--ink-dim); font-weight:600; background:var(--panel-2);}
-  table.proy td.codigo-col{font-family:'IBM Plex Mono',monospace; text-align:left; white-space:nowrap;}
-  table.proy .proy-almacenado{color:var(--ok);}
+  table.proy th, table.proy td{padding:9px 8px; text-align:center; border-bottom:1px solid var(--panel-2);}
+  table.proy th{color:var(--ink-dim); font-weight:600; font-size:11px;}
+  table.proy td.codigo-col{font-family:'IBM Plex Mono',monospace; text-align:left; white-space:nowrap; padding-left:8px;}
+  table.proy .proy-almacenado{color:var(--ok); font-weight:600;}
   table.proy .proy-saturado{color:var(--warn); font-weight:600;}
   table.proy.trace td:first-child, table.proy.trace th:first-child{text-align:left;}
 

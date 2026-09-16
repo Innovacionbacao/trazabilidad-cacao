@@ -148,9 +148,9 @@ function dibujarBarras(elId, datos, colorFn, vacioMsg){
     const x = startX + i*(boxW+gap);
     const y = chartH - h + topPad;
     const valorTxt = (d.kg/1000).toFixed(2);
-    bars += `<rect x="${x}" y="${y}" width="${boxW}" height="${Math.max(h,1)}" rx="2" style="fill:${colorFn(d)};"/>
+    bars += `<rect x="${x}" y="${y}" width="${boxW}" height="${Math.max(h,1)}" rx="3" style="fill:${colorFn(d)};"/>
       ${d.kg>0 ? `<text x="${x+boxW/2}" y="${y-5}" text-anchor="middle" style="font-size:8px; fill:var(--ink); font-family:'IBM Plex Mono';">${valorTxt}</text>` : ''}
-      <text x="${x+boxW/2}" y="${chartH+topPad+16}" text-anchor="middle" style="font-size:9px; fill:var(--ink-dim); font-family:'Space Grotesk';">${d.label}</text>`;
+      <text x="${x+boxW/2}" y="${chartH+topPad+16}" text-anchor="middle" style="font-size:9px; fill:var(--ink-dim); font-family:'Public Sans';">${d.label}</text>`;
   });
   const totalWidth = startX*2 + datos.length*(boxW+gap);
   document.getElementById(elId).innerHTML = datos.every(d=>d.kg===0)
